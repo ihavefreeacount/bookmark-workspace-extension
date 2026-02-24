@@ -3,10 +3,31 @@ import '@src/NewTab.css';
 
 type BookmarkNode = chrome.bookmarks.BookmarkTreeNode;
 
+type CollectionSummary = {
+  workspace: string;
+  id: string;
+  title: string;
+  links: BookmarkNode[];
+};
+
 const ROOT_FOLDER = 'Bookmark Workspace';
 
 function isFolder(node: BookmarkNode) {
   return !node.url;
+}
+
+function getDomain(url?: string) {
+  if (!url) return '';
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+function getFavicon(url?: string) {
+  if (!url) return '';
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(url)}&sz=32`;
 }
 
 async function ensureRootFolder() {
@@ -54,6 +75,33 @@ const NewTab = () => {
   }, []);
 
   const workspaces = useMemo(() => (tree?.children || []).filter(isFolder), [tree]);
+
+  const collections = useMemo(() => {
+    const out: CollectionSummary[] = [];
+    for (const ws of workspaces) {
+      for (const col of ws.children || []) {
+        if (!isFolder(col)) continue;
+        const links = (col.children || []).filter(n => !!n.url);
+        out.push({
+          workspace: ws.title || '',
+          id: col.id,
+          title: col.title || 'Untitled',
+          links,
+        });
+      }
+    }
+    return out;
+  }, [workspaces]);
+
+  const filteredCollections = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return collections;
+
+    return collections.filter(col => {
+      const hay = [col.workspace, col.title, ...col.links.map(l => `${l.title} ${l.url}`)].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [query, collections]);
 
   const createWorkspace = async () => {
     const name = window.prompt('워크스페이스 이름');
@@ -108,28 +156,17 @@ const NewTab = () => {
     }
   };
 
-  const filteredCollections = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return null;
-
-    const out: { workspace: string; id: string; title: string; count: number }[] = [];
-    for (const ws of workspaces) {
-      for (const col of ws.children || []) {
-        if (!isFolder(col)) continue;
-        const urls = (col.children || []).filter(c => c.url);
-        const hit = [col.title, ...urls.map(u => `${u.title} ${u.url}`)].join(' ').toLowerCase().includes(q);
-        if (hit) out.push({ workspace: ws.title || '', id: col.id, title: col.title || '', count: urls.length });
-      }
-    }
-    return out;
-  }, [query, workspaces]);
+  const openLink = async (url?: string) => {
+    if (!url) return;
+    await chrome.tabs.create({ url, active: true });
+  };
 
   return (
     <div className="nt-root">
       <header className="nt-header">
         <div>
           <h1>Bookmark Workspace</h1>
-          <p>New Tab = Project Dashboard (Source of Truth: Bookmarks)</p>
+          <p>Apple Reminders 스타일, 링크 1개 열기 중심 UX</p>
         </div>
       </header>
 
@@ -151,50 +188,46 @@ const NewTab = () => {
           <button onClick={refresh}>Refresh</button>
         </div>
         <div className="row">
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="컬렉션/링크 검색" />
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="링크/컬렉션 검색" />
         </div>
       </section>
 
-      {filteredCollections ? (
-        <section className="nt-card">
-          <h2>Search Results</h2>
-          <div className="grid">
-            {filteredCollections.map(col => (
-              <article key={col.id} className="col-card">
-                <div className="meta">{col.workspace}</div>
-                <h3>{col.title}</h3>
-                <p>{col.count} links</p>
+      <section className="nt-card">
+        <h2>Collections</h2>
+        <div className="grid">
+          {filteredCollections.map(col => (
+            <article key={col.id} className="col-card">
+              <div className="meta">{col.workspace}</div>
+              <h3>{col.title}</h3>
+              <p>{col.links.length} links</p>
+
+              <ul className="link-list">
+                {col.links.slice(0, 7).map(link => (
+                  <li key={link.id}>
+                    <button className="link-row" onClick={() => openLink(link.url)} title={link.url || ''}>
+                      <img className="fav" src={getFavicon(link.url)} alt="" />
+                      <span className="link-main">
+                        <span className="link-title">{link.title || link.url}</span>
+                        <span className="link-domain">{getDomain(link.url)}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              {col.links.length > 7 && <div className="more">+ {col.links.length - 7} more links</div>}
+
+              <details className="secondary-actions">
+                <summary>컬렉션 액션</summary>
                 <div className="row-inline">
                   <button onClick={() => openCollection(col.id, 'group')}>그룹열기</button>
                   <button onClick={() => openCollection(col.id, 'new-window')}>새창열기</button>
                 </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : (
-        <section className="nt-card">
-          <h2>Workspaces</h2>
-          <div className="grid">
-            {workspaces.flatMap(ws =>
-              (ws.children || []).filter(isFolder).map(col => {
-                const count = (col.children || []).filter(c => c.url).length;
-                return (
-                  <article key={col.id} className="col-card">
-                    <div className="meta">{ws.title}</div>
-                    <h3>{col.title}</h3>
-                    <p>{count} links</p>
-                    <div className="row-inline">
-                      <button onClick={() => openCollection(col.id, 'group')}>그룹열기</button>
-                      <button onClick={() => openCollection(col.id, 'new-window')}>새창열기</button>
-                    </div>
-                  </article>
-                );
-              }),
-            )}
-          </div>
-        </section>
-      )}
+              </details>
+            </article>
+          ))}
+        </div>
+      </section>
     </div>
   );
 };

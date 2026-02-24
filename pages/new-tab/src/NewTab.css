@@ -67,13 +67,13 @@ button.primary {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 12px;
 }
 
 .col-card {
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 12px;
   background: #ffffff;
 }
@@ -94,8 +94,73 @@ button.primary {
   color: #475569;
 }
 
-.row-inline {
+.link-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.link-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: #f8fafc;
+  padding: 8px;
+}
+
+.link-row:hover {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+.fav {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.link-main {
+  min-width: 0;
+  display: grid;
+}
+
+.link-title {
+  font-size: 13px;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.link-domain {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.more {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.secondary-actions {
   margin-top: 10px;
+}
+
+.secondary-actions summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: #475569;
+}
+
+.row-inline {
+  margin-top: 8px;
   display: flex;
   gap: 6px;
 }
