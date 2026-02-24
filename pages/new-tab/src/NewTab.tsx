@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import '@src/NewTab.css';
+import { getCachedFavicon, getDomain, getFaviconCandidates, rememberFavicon } from '@src/lib/favicon-resolver';
 
 type BookmarkNode = chrome.bookmarks.BookmarkTreeNode;
 
@@ -14,20 +15,6 @@ const ROOT_FOLDER = 'Bookmark Workspace';
 
 function isFolder(node: BookmarkNode) {
   return !node.url;
-}
-
-function getDomain(url?: string) {
-  if (!url) return '';
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return '';
-  }
-}
-
-function getFavicon(url?: string) {
-  if (!url) return '';
-  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(url)}&sz=32`;
 }
 
 async function ensureRootFolder() {
@@ -48,6 +35,7 @@ const NewTab = () => {
   const [tree, setTree] = useState<BookmarkNode | null>(null);
   const [workspaceId, setWorkspaceId] = useState<string>('');
   const [query, setQuery] = useState('');
+  const [faviconIndexById, setFaviconIndexById] = useState<Record<string, number>>({});
 
   const refresh = async () => {
     const next = await loadTree();
@@ -161,6 +149,29 @@ const NewTab = () => {
     await chrome.tabs.create({ url, active: true });
   };
 
+  const getFaviconSrc = (link: BookmarkNode) => {
+    const candidates = getFaviconCandidates(link.url);
+    const cached = getCachedFavicon(link.url);
+    const index = faviconIndexById[link.id] ?? 0;
+
+    if (cached) return cached;
+    return candidates[index] || candidates[0] || '';
+  };
+
+  const onFaviconError = (link: BookmarkNode) => {
+    const candidates = getFaviconCandidates(link.url);
+    setFaviconIndexById(prev => {
+      const next = { ...prev };
+      const cur = next[link.id] ?? 0;
+      next[link.id] = Math.min(cur + 1, Math.max(0, candidates.length - 1));
+      return next;
+    });
+  };
+
+  const onFaviconLoad = (link: BookmarkNode, src: string) => {
+    rememberFavicon(link.url, src);
+  };
+
   return (
     <div className="nt-root">
       <header className="nt-header">
@@ -202,17 +213,26 @@ const NewTab = () => {
               <p>{col.links.length} links</p>
 
               <ul className="link-list">
-                {col.links.slice(0, 7).map(link => (
-                  <li key={link.id}>
-                    <button className="link-row" onClick={() => openLink(link.url)} title={link.url || ''}>
-                      <img className="fav" src={getFavicon(link.url)} alt="" />
-                      <span className="link-main">
-                        <span className="link-title">{link.title || link.url}</span>
-                        <span className="link-domain">{getDomain(link.url)}</span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                {col.links.slice(0, 7).map(link => {
+                  const icon = getFaviconSrc(link);
+                  return (
+                    <li key={link.id}>
+                      <button className="link-row" onClick={() => openLink(link.url)} title={link.url || ''}>
+                        <img
+                          className="fav"
+                          src={icon}
+                          alt=""
+                          onError={() => onFaviconError(link)}
+                          onLoad={e => onFaviconLoad(link, (e.currentTarget as HTMLImageElement).src)}
+                        />
+                        <span className="link-main">
+                          <span className="link-title">{link.title || link.url}</span>
+                          <span className="link-domain">{getDomain(link.url)}</span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
 
               {col.links.length > 7 && <div className="more">+ {col.links.length - 7} more links</div>}
