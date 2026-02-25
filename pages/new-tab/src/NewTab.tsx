@@ -1,6 +1,7 @@
+import { getCachedFavicon, getDomain, getFaviconCandidates, rememberFavicon } from '@src/lib/favicon-resolver';
+import { Command } from 'cmdk';
 import { useEffect, useMemo, useState } from 'react';
 import '@src/NewTab.css';
-import { getCachedFavicon, getDomain, getFaviconCandidates, rememberFavicon } from '@src/lib/favicon-resolver';
 
 type BookmarkNode = chrome.bookmarks.BookmarkTreeNode;
 
@@ -9,6 +10,15 @@ type CollectionSummary = {
   id: string;
   title: string;
   links: BookmarkNode[];
+};
+
+type CommandLink = {
+  key: string;
+  title: string;
+  url?: string;
+  domain: string;
+  workspace: string;
+  collection: string;
 };
 
 const ROOT_FOLDER = 'Bookmark Workspace';
@@ -32,7 +42,8 @@ const loadTree = async () => {
 const NewTab = () => {
   const [tree, setTree] = useState<BookmarkNode | null>(null);
   const [workspaceId, setWorkspaceId] = useState<string>('');
-  const [query, setQuery] = useState('');
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [commandQuery, setCommandQuery] = useState('');
   const [faviconIndexById, setFaviconIndexById] = useState<Record<string, number>>({});
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
@@ -87,6 +98,18 @@ const NewTab = () => {
     return () => clearTimeout(t);
   }, [toast]);
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setCommandOpen(v => !v);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   const workspaces = useMemo(() => (tree?.children || []).filter(isFolder), [tree]);
   const selectedWorkspace = useMemo(() => workspaces.find(w => w.id === workspaceId), [workspaces, workspaceId]);
 
@@ -107,16 +130,20 @@ const NewTab = () => {
     return out;
   }, [workspaces, selectedWorkspace]);
 
-  const filteredCollections = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return collections;
-    return collections.filter(col =>
-      [col.workspace, col.title, ...col.links.map(l => `${l.title} ${l.url}`)]
-        .join(' ')
-        .toLowerCase()
-        .includes(q),
-    );
-  }, [query, collections]);
+  const commandLinks = useMemo<CommandLink[]>(
+    () =>
+      collections.flatMap(col =>
+        col.links.map(link => ({
+          key: `${col.id}-${link.id}`,
+          title: link.title || link.url || 'Untitled',
+          url: link.url,
+          domain: getDomain(link.url),
+          workspace: col.workspace,
+          collection: col.title,
+        })),
+      ),
+    [collections],
+  );
 
   const createWorkspace = async () => {
     const name = window.prompt('워크스페이스 이름');
@@ -210,18 +237,31 @@ const NewTab = () => {
     await refresh();
   };
 
+  const closeCommand = () => {
+    setCommandOpen(false);
+    setCommandQuery('');
+  };
+
+  const runCommand = (fn: () => Promise<void> | void) => {
+    closeCommand();
+    Promise.resolve(fn()).catch(console.error);
+  };
+
   return (
     <div className="nt-root">
       <header className="nt-header">
-        <div className="brand">Bookmark Workspace</div>
         <div className="top-actions">
           <button className="icon" onClick={() => setLeftCollapsed(v => !v)} title="왼쪽 패널">
             {leftCollapsed ? '⟫' : '⟪'}
           </button>
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="검색" />
-          <button onClick={createCollection}>+ Collection</button>
+          <button className="icon search-trigger" onClick={() => setCommandOpen(true)} title="검색 / 커맨드 (⌘K)">
+            ⌕
+          </button>
+          <button className="secondary" onClick={createCollection}>
+            + 컬렉션
+          </button>
           <button className="primary" onClick={saveWindow}>
-            Save Window
+            창 저장
           </button>
           <button className="icon" onClick={() => setRightCollapsed(v => !v)} title="오른쪽 패널">
             {rightCollapsed ? '⟪' : '⟫'}
@@ -234,7 +274,7 @@ const NewTab = () => {
           {!leftCollapsed ? (
             <>
               <button className="full" onClick={createWorkspace}>
-                + Workspace
+                + 워크스페이스
               </button>
               <ul className="workspace-list">
                 {workspaces.map(ws => (
@@ -255,7 +295,7 @@ const NewTab = () => {
 
         <section className="panel center">
           <div className="grid">
-            {filteredCollections.map(col => (
+            {collections.map(col => (
               <article
                 key={col.id}
                 className={`col-card ${dropCollectionId === col.id ? 'drop-target' : ''}`}
@@ -265,6 +305,9 @@ const NewTab = () => {
                 }}
                 onDragLeave={() => setDropCollectionId(null)}
                 onDrop={e => onDropTabToCollection(e, col.id)}>
+                <div className="col-head">
+                  <h3 className="col-title">{col.title}</h3>
+                </div>
                 <ul className="link-list">
                   {col.links.slice(0, 8).map(link => {
                     const icon = getFaviconSrc(link);
@@ -289,10 +332,10 @@ const NewTab = () => {
                 </ul>
 
                 <details className="secondary-actions">
-                  <summary>•••</summary>
+                  <summary>작업</summary>
                   <div className="row-inline">
-                    <button onClick={() => openCollection(col.id, 'group')}>Group</button>
-                    <button onClick={() => openCollection(col.id, 'new-window')}>Window</button>
+                    <button onClick={() => openCollection(col.id, 'group')}>그룹 열기</button>
+                    <button onClick={() => openCollection(col.id, 'new-window')}>새 창 열기</button>
                   </div>
                 </details>
               </article>
@@ -330,6 +373,88 @@ const NewTab = () => {
       </main>
 
       {!!toast && <div className="toast">{toast}</div>}
+
+      <Command.Dialog
+        className="cmdk-dialog"
+        overlayClassName="cmdk-overlay"
+        label="커맨드 팔레트"
+        open={commandOpen}
+        onOpenChange={open => {
+          setCommandOpen(open);
+          if (!open) setCommandQuery('');
+        }}>
+        <Command.Input
+          className="cmdk-input"
+          placeholder="명령, 워크스페이스, 컬렉션 검색..."
+          value={commandQuery}
+          onValueChange={setCommandQuery}
+        />
+        <Command.List className="cmdk-list">
+          <Command.Empty className="cmdk-empty">결과가 없습니다.</Command.Empty>
+
+          <Command.Group heading="빠른 작업" className="cmdk-group">
+            <Command.Item className="cmdk-item" onSelect={() => runCommand(() => createCollection())}>
+              컬렉션 만들기
+            </Command.Item>
+            <Command.Item className="cmdk-item" onSelect={() => runCommand(() => createWorkspace())}>
+              워크스페이스 만들기
+            </Command.Item>
+            <Command.Item className="cmdk-item" onSelect={() => runCommand(() => saveWindow())}>
+              현재 창 저장
+            </Command.Item>
+          </Command.Group>
+
+          <Command.Group heading="워크스페이스" className="cmdk-group">
+            {workspaces.map(ws => (
+              <Command.Item
+                key={ws.id}
+                className="cmdk-item"
+                value={`workspace-${ws.title}`}
+                onSelect={() =>
+                  runCommand(() => {
+                    setWorkspaceId(ws.id);
+                  })
+                }>
+                {workspaceId === ws.id ? '✓ ' : ''}
+                {ws.title}
+              </Command.Item>
+            ))}
+          </Command.Group>
+
+          <Command.Group heading="컬렉션 열기" className="cmdk-group">
+            {collections.map(col => (
+              <Command.Item
+                key={`${col.id}-group`}
+                className="cmdk-item"
+                value={`${col.workspace} ${col.title} group`}
+                onSelect={() => runCommand(() => openCollection(col.id, 'group'))}>
+                {col.title} · 그룹 열기
+              </Command.Item>
+            ))}
+            {collections.map(col => (
+              <Command.Item
+                key={`${col.id}-window`}
+                className="cmdk-item"
+                value={`${col.workspace} ${col.title} window`}
+                onSelect={() => runCommand(() => openCollection(col.id, 'new-window'))}>
+                {col.title} · 새 창 열기
+              </Command.Item>
+            ))}
+          </Command.Group>
+
+          <Command.Group heading="저장된 북마크" className="cmdk-group">
+            {commandLinks.map(link => (
+              <Command.Item
+                key={link.key}
+                className="cmdk-item"
+                value={`${link.title} ${link.url || ''} ${link.domain} ${link.workspace} ${link.collection}`}
+                onSelect={() => runCommand(() => openLink(link.url))}>
+                {link.title}
+              </Command.Item>
+            ))}
+          </Command.Group>
+        </Command.List>
+      </Command.Dialog>
     </div>
   );
 };

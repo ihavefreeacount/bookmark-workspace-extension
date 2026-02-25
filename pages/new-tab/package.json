@@ -23,7 +23,8 @@
     "@extension/i18n": "workspace:*",
     "@extension/shared": "workspace:*",
     "@extension/storage": "workspace:*",
-    "@extension/ui": "workspace:*"
+    "@extension/ui": "workspace:*",
+    "cmdk": "^1.1.1"
   },
   "devDependencies": {
     "@extension/tailwindcss-config": "workspace:*",
