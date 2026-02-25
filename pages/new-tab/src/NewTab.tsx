@@ -13,23 +13,21 @@ type CollectionSummary = {
 
 const ROOT_FOLDER = 'Bookmark Workspace';
 
-function isFolder(node: BookmarkNode) {
-  return !node.url;
-}
+const isFolder = (node: BookmarkNode) => !node.url;
 
-async function ensureRootFolder() {
+const ensureRootFolder = async () => {
   const nodes = await chrome.bookmarks.search({ title: ROOT_FOLDER });
   const existing = nodes.find(n => !n.url);
   if (existing) return existing.id;
   const created = await chrome.bookmarks.create({ parentId: '1', title: ROOT_FOLDER });
   return created.id;
-}
+};
 
-async function loadTree() {
+const loadTree = async () => {
   const rootId = await ensureRootFolder();
   const [root] = await chrome.bookmarks.getSubTree(rootId);
   return root;
-}
+};
 
 const NewTab = () => {
   const [tree, setTree] = useState<BookmarkNode | null>(null);
@@ -45,9 +43,7 @@ const NewTab = () => {
   const refresh = async () => {
     const next = await loadTree();
     setTree(next);
-    if (!workspaceId && next.children?.[0]?.id) {
-      setWorkspaceId(next.children[0].id);
-    }
+    if (!workspaceId && next.children?.[0]?.id) setWorkspaceId(next.children[0].id);
   };
 
   const refreshTabs = async () => {
@@ -59,29 +55,29 @@ const NewTab = () => {
     refresh().catch(console.error);
     refreshTabs().catch(console.error);
 
-    const onChanged = () => refresh().catch(console.error);
-    const onTabs = () => refreshTabs().catch(console.error);
+    const onBookmarksChanged = () => refresh().catch(console.error);
+    const onTabsChanged = () => refreshTabs().catch(console.error);
 
-    chrome.bookmarks.onCreated.addListener(onChanged);
-    chrome.bookmarks.onRemoved.addListener(onChanged);
-    chrome.bookmarks.onChanged.addListener(onChanged);
-    chrome.bookmarks.onMoved.addListener(onChanged);
+    chrome.bookmarks.onCreated.addListener(onBookmarksChanged);
+    chrome.bookmarks.onRemoved.addListener(onBookmarksChanged);
+    chrome.bookmarks.onChanged.addListener(onBookmarksChanged);
+    chrome.bookmarks.onMoved.addListener(onBookmarksChanged);
 
-    chrome.tabs.onCreated.addListener(onTabs);
-    chrome.tabs.onRemoved.addListener(onTabs);
-    chrome.tabs.onUpdated.addListener(onTabs);
-    chrome.tabs.onActivated.addListener(onTabs);
+    chrome.tabs.onCreated.addListener(onTabsChanged);
+    chrome.tabs.onRemoved.addListener(onTabsChanged);
+    chrome.tabs.onUpdated.addListener(onTabsChanged);
+    chrome.tabs.onActivated.addListener(onTabsChanged);
 
     return () => {
-      chrome.bookmarks.onCreated.removeListener(onChanged);
-      chrome.bookmarks.onRemoved.removeListener(onChanged);
-      chrome.bookmarks.onChanged.removeListener(onChanged);
-      chrome.bookmarks.onMoved.removeListener(onChanged);
+      chrome.bookmarks.onCreated.removeListener(onBookmarksChanged);
+      chrome.bookmarks.onRemoved.removeListener(onBookmarksChanged);
+      chrome.bookmarks.onChanged.removeListener(onBookmarksChanged);
+      chrome.bookmarks.onMoved.removeListener(onBookmarksChanged);
 
-      chrome.tabs.onCreated.removeListener(onTabs);
-      chrome.tabs.onRemoved.removeListener(onTabs);
-      chrome.tabs.onUpdated.removeListener(onTabs);
-      chrome.tabs.onActivated.removeListener(onTabs);
+      chrome.tabs.onCreated.removeListener(onTabsChanged);
+      chrome.tabs.onRemoved.removeListener(onTabsChanged);
+      chrome.tabs.onUpdated.removeListener(onTabsChanged);
+      chrome.tabs.onActivated.removeListener(onTabsChanged);
     };
   }, []);
 
@@ -97,16 +93,14 @@ const NewTab = () => {
   const collections = useMemo(() => {
     const out: CollectionSummary[] = [];
     const source = selectedWorkspace ? [selectedWorkspace] : workspaces;
-
     for (const ws of source) {
       for (const col of ws.children || []) {
         if (!isFolder(col)) continue;
-        const links = (col.children || []).filter(n => !!n.url);
         out.push({
           workspace: ws.title || '',
           id: col.id,
           title: col.title || 'Untitled',
-          links,
+          links: (col.children || []).filter(n => !!n.url),
         });
       }
     }
@@ -116,10 +110,12 @@ const NewTab = () => {
   const filteredCollections = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return collections;
-    return collections.filter(col => {
-      const hay = [col.workspace, col.title, ...col.links.map(l => `${l.title} ${l.url}`)].join(' ').toLowerCase();
-      return hay.includes(q);
-    });
+    return collections.filter(col =>
+      [col.workspace, col.title, ...col.links.map(l => `${l.title} ${l.url}`)]
+        .join(' ')
+        .toLowerCase()
+        .includes(q),
+    );
   }, [query, collections]);
 
   const createWorkspace = async () => {
@@ -195,14 +191,9 @@ const NewTab = () => {
     const candidates = getFaviconCandidates(link.url);
     setFaviconIndexById(prev => {
       const next = { ...prev };
-      const cur = next[link.id] ?? 0;
-      next[link.id] = Math.min(cur + 1, Math.max(0, candidates.length - 1));
+      next[link.id] = Math.min((next[link.id] ?? 0) + 1, Math.max(0, candidates.length - 1));
       return next;
     });
-  };
-
-  const onFaviconLoad = (link: BookmarkNode, src: string) => {
-    rememberFavicon(link.url, src);
   };
 
   const onDropTabToCollection = async (e: React.DragEvent, collectionId: string) => {
@@ -214,12 +205,7 @@ const NewTab = () => {
     const payload = JSON.parse(raw) as { url?: string; title?: string };
     if (!payload.url) return;
 
-    await chrome.bookmarks.create({
-      parentId: collectionId,
-      title: payload.title || payload.url,
-      url: payload.url,
-    });
-
+    await chrome.bookmarks.create({ parentId: collectionId, title: payload.title || payload.url, url: payload.url });
     setToast('링크 저장됨');
     await refresh();
   };
@@ -227,24 +213,25 @@ const NewTab = () => {
   return (
     <div className="nt-root">
       <header className="nt-header">
-        <h1>Bookmark Workspace</h1>
+        <div className="brand">Bookmark Workspace</div>
         <div className="top-actions">
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="링크/컬렉션 검색" />
+          <button className="icon" onClick={() => setLeftCollapsed(v => !v)} title="왼쪽 패널">
+            {leftCollapsed ? '⟫' : '⟪'}
+          </button>
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="검색" />
           <button onClick={createCollection}>+ Collection</button>
           <button className="primary" onClick={saveWindow}>
             Save Window
           </button>
-          <button onClick={refresh}>Refresh</button>
+          <button className="icon" onClick={() => setRightCollapsed(v => !v)} title="오른쪽 패널">
+            {rightCollapsed ? '⟪' : '⟫'}
+          </button>
         </div>
       </header>
 
       <main className={`layout ${leftCollapsed ? 'left-collapsed' : ''} ${rightCollapsed ? 'right-collapsed' : ''}`}>
         <aside className="panel left">
-          <div className="panel-head">
-            <h2>Workspaces</h2>
-            <button onClick={() => setLeftCollapsed(v => !v)}>{leftCollapsed ? '▶' : '◀'}</button>
-          </div>
-          {!leftCollapsed && (
+          {!leftCollapsed ? (
             <>
               <button className="full" onClick={createWorkspace}>
                 + Workspace
@@ -259,11 +246,14 @@ const NewTab = () => {
                 ))}
               </ul>
             </>
+          ) : (
+            <button className="expand-only" onClick={() => setLeftCollapsed(false)} title="열기">
+              ⟫
+            </button>
           )}
         </aside>
 
         <section className="panel center">
-          <h2>Collections</h2>
           <div className="grid">
             {filteredCollections.map(col => (
               <article
@@ -275,12 +265,8 @@ const NewTab = () => {
                 }}
                 onDragLeave={() => setDropCollectionId(null)}
                 onDrop={e => onDropTabToCollection(e, col.id)}>
-                <div className="meta">{col.workspace}</div>
-                <h3>{col.title}</h3>
-                <p>{col.links.length} links</p>
-
                 <ul className="link-list">
-                  {col.links.slice(0, 7).map(link => {
+                  {col.links.slice(0, 8).map(link => {
                     const icon = getFaviconSrc(link);
                     return (
                       <li key={link.id}>
@@ -290,7 +276,7 @@ const NewTab = () => {
                             src={icon}
                             alt=""
                             onError={() => onFaviconError(link)}
-                            onLoad={e => onFaviconLoad(link, (e.currentTarget as HTMLImageElement).src)}
+                            onLoad={e => rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)}
                           />
                           <span className="link-main">
                             <span className="link-title">{link.title || link.url}</span>
@@ -303,10 +289,10 @@ const NewTab = () => {
                 </ul>
 
                 <details className="secondary-actions">
-                  <summary>컬렉션 액션</summary>
+                  <summary>•••</summary>
                   <div className="row-inline">
-                    <button onClick={() => openCollection(col.id, 'group')}>그룹열기</button>
-                    <button onClick={() => openCollection(col.id, 'new-window')}>새창열기</button>
+                    <button onClick={() => openCollection(col.id, 'group')}>Group</button>
+                    <button onClick={() => openCollection(col.id, 'new-window')}>Window</button>
                   </div>
                 </details>
               </article>
@@ -315,11 +301,7 @@ const NewTab = () => {
         </section>
 
         <aside className="panel right">
-          <div className="panel-head">
-            <h2>Current Tabs</h2>
-            <button onClick={() => setRightCollapsed(v => !v)}>{rightCollapsed ? '◀' : '▶'}</button>
-          </div>
-          {!rightCollapsed && (
+          {!rightCollapsed ? (
             <ul className="tab-list">
               {tabs.map(tab => (
                 <li
@@ -339,6 +321,10 @@ const NewTab = () => {
                 </li>
               ))}
             </ul>
+          ) : (
+            <button className="expand-only" onClick={() => setRightCollapsed(false)} title="열기">
+              ⟪
+            </button>
           )}
         </aside>
       </main>
