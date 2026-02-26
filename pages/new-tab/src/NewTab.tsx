@@ -135,20 +135,25 @@ const NewTab = () => {
     return out;
   }, [workspaces, selectedWorkspace]);
 
-  const commandLinks = useMemo<CommandLink[]>(
-    () =>
-      collections.flatMap(col =>
-        col.links.map(link => ({
-          key: `${col.id}-${link.id}`,
-          title: link.title || link.url || 'Untitled',
-          url: link.url,
-          domain: getDomain(link.url),
-          workspace: col.workspace,
-          collection: col.title,
-        })),
-      ),
-    [collections],
-  );
+  const commandLinks = useMemo<CommandLink[]>(() => {
+    const out: CommandLink[] = [];
+    for (const ws of workspaces) {
+      for (const col of ws.children || []) {
+        if (!isFolder(col)) continue;
+        for (const link of (col.children || []).filter(n => !!n.url)) {
+          out.push({
+            key: `${col.id}-${link.id}`,
+            title: link.title || link.url || 'Untitled',
+            url: link.url,
+            domain: getDomain(link.url),
+            workspace: ws.title || '',
+            collection: col.title || 'Untitled',
+          });
+        }
+      }
+    }
+    return out;
+  }, [workspaces]);
 
   const createWorkspace = async () => {
     const name = window.prompt('스페이스 이름');
@@ -283,9 +288,6 @@ const NewTab = () => {
     <div className="nt-root">
       <header className="nt-header">
         <div className="top-actions">
-          <button className="icon" onClick={() => setLeftCollapsed(v => !v)} title="왼쪽 패널">
-            {leftCollapsed ? '⟫' : '⟪'}
-          </button>
           <button className="icon search-trigger" onClick={() => setCommandOpen(true)} title="검색 / 커맨드 (⌘K)">
             ⌕
           </button>
@@ -303,7 +305,7 @@ const NewTab = () => {
 
       <main className={`layout ${leftCollapsed ? 'left-collapsed' : ''} ${rightCollapsed ? 'right-collapsed' : ''}`}>
         <aside className="panel left">
-          {!leftCollapsed ? (
+          {!leftCollapsed && (
             <>
               <button className="full" onClick={createWorkspace}>
                 + 스페이스
@@ -329,12 +331,16 @@ const NewTab = () => {
                 ))}
               </ul>
             </>
-          ) : (
-            <button className="expand-only" onClick={() => setLeftCollapsed(false)} title="열기">
-              ⟫
-            </button>
           )}
         </aside>
+        <button
+          className={`sidebar-handle sidebar-handle-left ${leftCollapsed ? 'collapsed' : ''}`}
+          onClick={() => setLeftCollapsed(v => !v)}
+          aria-label={leftCollapsed ? '왼쪽 패널 열기' : '왼쪽 패널 닫기'}
+          aria-expanded={!leftCollapsed}
+          title={leftCollapsed ? '왼쪽 패널 열기' : '왼쪽 패널 닫기'}>
+          {leftCollapsed ? '›' : '‹'}
+        </button>
 
         <section className="panel center">
           <div className="grid">

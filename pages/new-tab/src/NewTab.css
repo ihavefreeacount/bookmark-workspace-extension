@@ -100,6 +100,8 @@ button.active {
   display: grid;
   grid-template-columns: 280px 1fr 340px;
   gap: 12px;
+  position: relative;
+  transition: grid-template-columns 180ms ease;
 }
 
 .layout.left-collapsed {
@@ -112,6 +114,37 @@ button.active {
 
 .layout.left-collapsed.right-collapsed {
   grid-template-columns: 56px 1fr 56px;
+}
+
+.sidebar-handle {
+  position: absolute;
+  top: 50%;
+  width: 24px;
+  height: 48px;
+  transform: translateY(-50%);
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(1px);
+  z-index: 5;
+}
+
+.sidebar-handle:hover {
+  border-color: #c4cad3;
+  color: #4b5563;
+}
+
+.sidebar-handle-left {
+  left: 266px;
+  transition: left 180ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.layout.left-collapsed .sidebar-handle-left {
+  left: 42px;
 }
 
 .panel {
