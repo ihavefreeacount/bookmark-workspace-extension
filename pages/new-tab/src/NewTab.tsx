@@ -59,6 +59,7 @@ const NewTab = () => {
   const [tabs, setTabs] = useState<chrome.tabs.Tab[]>([]);
   const [dropCollectionId, setDropCollectionId] = useState<string | null>(null);
   const [dropWorkspaceId, setDropWorkspaceId] = useState<string | null>(null);
+  const [dragKind, setDragKind] = useState<'tab' | 'collection' | null>(null);
   const [toast, setToast] = useState('');
 
   const refresh = useCallback(async () => {
@@ -238,6 +239,8 @@ const NewTab = () => {
   };
 
   const onDragCollectionStart = (e: React.DragEvent, collection: CollectionSummary) => {
+    setDragKind('collection');
+    e.dataTransfer.clearData();
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData(
       DND_COLLECTION_MIME,
@@ -251,7 +254,9 @@ const NewTab = () => {
 
   const onDropCollectionToWorkspace = async (e: React.DragEvent, targetWorkspace: BookmarkNode) => {
     e.preventDefault();
+    e.stopPropagation();
     setDropWorkspaceId(null);
+    if (dragKind !== 'collection') return;
 
     const raw = e.dataTransfer.getData(DND_COLLECTION_MIME);
     if (!raw) return;
@@ -283,7 +288,9 @@ const NewTab = () => {
 
   const onDropTabToCollection = async (e: React.DragEvent, collectionId: string) => {
     e.preventDefault();
+    e.stopPropagation();
     setDropCollectionId(null);
+    if (dragKind !== 'tab') return;
     const raw = e.dataTransfer.getData(DND_TAB_MIME);
     if (!raw) return;
 
@@ -338,7 +345,7 @@ const NewTab = () => {
                       className={`${workspaceId === ws.id ? 'active' : ''} ${dropWorkspaceId === ws.id ? 'drop-target' : ''}`}
                       onClick={() => setWorkspaceId(ws.id)}
                       onDragOver={e => {
-                        if (!e.dataTransfer.types.includes(DND_COLLECTION_MIME)) return;
+                        if (dragKind !== 'collection') return;
                         e.preventDefault();
                         if (dropWorkspaceId !== ws.id) setDropWorkspaceId(ws.id);
                       }}
@@ -371,9 +378,13 @@ const NewTab = () => {
                 className={`col-card ${dropCollectionId === col.id ? 'drop-target' : ''}`}
                 draggable
                 onDragStart={e => onDragCollectionStart(e, col)}
-                onDragEnd={() => setDropWorkspaceId(null)}
+                onDragEnd={() => {
+                  setDropWorkspaceId(null);
+                  setDropCollectionId(null);
+                  setDragKind(null);
+                }}
                 onDragOver={e => {
-                  if (!e.dataTransfer.types.includes(DND_TAB_MIME)) return;
+                  if (dragKind !== 'tab') return;
                   e.preventDefault();
                   setDropCollectionId(col.id);
                 }}
@@ -425,7 +436,13 @@ const NewTab = () => {
                   key={tab.id}
                   draggable
                   onDragStart={e => {
+                    setDragKind('tab');
                     e.dataTransfer.setData(DND_TAB_MIME, JSON.stringify({ title: tab.title, url: tab.url }));
+                  }}
+                  onDragEnd={() => {
+                    setDropCollectionId(null);
+                    setDropWorkspaceId(null);
+                    setDragKind(null);
                   }}>
                   <img className="fav" src={getFaviconCandidates(tab.url)[0]} alt="" />
                   <div>
