@@ -1,6 +1,6 @@
 import { getCachedFavicon, getDomain, getFaviconCandidates, rememberFavicon } from '@src/lib/favicon-resolver';
 import { Command } from 'cmdk';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import '@src/NewTab.css';
 
 type BookmarkNode = chrome.bookmarks.BookmarkTreeNode;
@@ -55,16 +55,16 @@ const NewTab = () => {
   const [dropWorkspaceId, setDropWorkspaceId] = useState<string | null>(null);
   const [toast, setToast] = useState('');
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const next = await loadTree();
     setTree(next);
-    if (!workspaceId && next.children?.[0]?.id) setWorkspaceId(next.children[0].id);
-  };
+    setWorkspaceId(prev => prev || next.children?.[0]?.id || '');
+  }, []);
 
-  const refreshTabs = async () => {
+  const refreshTabs = useCallback(async () => {
     const list = await chrome.tabs.query({ currentWindow: true });
     setTabs(list.filter(t => t.url && /^https?:\/\//.test(t.url)));
-  };
+  }, []);
 
   useEffect(() => {
     refresh().catch(console.error);
@@ -94,7 +94,7 @@ const NewTab = () => {
       chrome.tabs.onUpdated.removeListener(onTabsChanged);
       chrome.tabs.onActivated.removeListener(onTabsChanged);
     };
-  }, []);
+  }, [refresh, refreshTabs]);
 
   useEffect(() => {
     if (!toast) return;
