@@ -25,6 +25,9 @@ type CommandLink = {
 const ROOT_FOLDER = 'Bookmark Workspace';
 const DND_TAB_MIME = 'application/x-bookmark-workspace-tab';
 const DND_COLLECTION_MIME = 'application/x-bookmark-workspace-collection';
+const LS_SELECTED_SPACE = 'bw:selected-space-id';
+const LS_LEFT_COLLAPSED = 'bw:left-collapsed';
+const LS_RIGHT_COLLAPSED = 'bw:right-collapsed';
 
 const isFolder = (node: BookmarkNode) => !node.url;
 
@@ -42,14 +45,17 @@ const loadTree = async () => {
   return root;
 };
 
+const getPersisted = (key: string) => window.localStorage.getItem(key) || '';
+const getPersistedBool = (key: string) => window.localStorage.getItem(key) === '1';
+
 const NewTab = () => {
   const [tree, setTree] = useState<BookmarkNode | null>(null);
-  const [workspaceId, setWorkspaceId] = useState<string>('');
+  const [workspaceId, setWorkspaceId] = useState<string>(() => getPersisted(LS_SELECTED_SPACE));
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
   const [faviconIndexById, setFaviconIndexById] = useState<Record<string, number>>({});
-  const [leftCollapsed, setLeftCollapsed] = useState(false);
-  const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [leftCollapsed, setLeftCollapsed] = useState(() => getPersistedBool(LS_LEFT_COLLAPSED));
+  const [rightCollapsed, setRightCollapsed] = useState(() => getPersistedBool(LS_RIGHT_COLLAPSED));
   const [tabs, setTabs] = useState<chrome.tabs.Tab[]>([]);
   const [dropCollectionId, setDropCollectionId] = useState<string | null>(null);
   const [dropWorkspaceId, setDropWorkspaceId] = useState<string | null>(null);
@@ -58,7 +64,10 @@ const NewTab = () => {
   const refresh = useCallback(async () => {
     const next = await loadTree();
     setTree(next);
-    setWorkspaceId(prev => prev || next.children?.[0]?.id || '');
+    setWorkspaceId(prev => {
+      const exists = !!next.children?.some(c => c.id === prev);
+      return exists ? prev : next.children?.[0]?.id || '';
+    });
   }, []);
 
   const refreshTabs = useCallback(async () => {
@@ -101,6 +110,18 @@ const NewTab = () => {
     const t = setTimeout(() => setToast(''), 1400);
     return () => clearTimeout(t);
   }, [toast]);
+
+  useEffect(() => {
+    window.localStorage.setItem(LS_SELECTED_SPACE, workspaceId);
+  }, [workspaceId]);
+
+  useEffect(() => {
+    window.localStorage.setItem(LS_LEFT_COLLAPSED, leftCollapsed ? '1' : '0');
+  }, [leftCollapsed]);
+
+  useEffect(() => {
+    window.localStorage.setItem(LS_RIGHT_COLLAPSED, rightCollapsed ? '1' : '0');
+  }, [rightCollapsed]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
