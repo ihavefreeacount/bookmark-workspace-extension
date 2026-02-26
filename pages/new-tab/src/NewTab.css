@@ -145,6 +145,11 @@ button.active {
   text-align: left;
 }
 
+.workspace-list button.drop-target {
+  border-color: #9ca3af;
+  background: #eef2f7;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -156,6 +161,7 @@ button.active {
   border-radius: var(--radius-md);
   padding: 10px;
   background: var(--bg-surface);
+  cursor: grab;
 }
 
 .col-head {
@@ -193,6 +199,11 @@ button.active {
   cursor: grab;
 }
 
+.tab-list li > div {
+  min-width: 0;
+  flex: 1;
+}
+
 .link-row:hover,
 .tab-list li:hover {
   background: #f3f4f6;
@@ -222,6 +233,9 @@ button.active {
 .tab-domain {
   font-size: 11px;
   color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .secondary-actions {

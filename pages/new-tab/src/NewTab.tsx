@@ -6,6 +6,7 @@ import '@src/NewTab.css';
 type BookmarkNode = chrome.bookmarks.BookmarkTreeNode;
 
 type CollectionSummary = {
+  workspaceId: string;
   workspace: string;
   id: string;
   title: string;
@@ -22,6 +23,8 @@ type CommandLink = {
 };
 
 const ROOT_FOLDER = 'Bookmark Workspace';
+const DND_TAB_MIME = 'application/x-bookmark-workspace-tab';
+const DND_COLLECTION_MIME = 'application/x-bookmark-workspace-collection';
 
 const isFolder = (node: BookmarkNode) => !node.url;
 
@@ -49,6 +52,7 @@ const NewTab = () => {
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [tabs, setTabs] = useState<chrome.tabs.Tab[]>([]);
   const [dropCollectionId, setDropCollectionId] = useState<string | null>(null);
+  const [dropWorkspaceId, setDropWorkspaceId] = useState<string | null>(null);
   const [toast, setToast] = useState('');
 
   const refresh = async () => {
@@ -120,6 +124,7 @@ const NewTab = () => {
       for (const col of ws.children || []) {
         if (!isFolder(col)) continue;
         out.push({
+          workspaceId: ws.id,
           workspace: ws.title || '',
           id: col.id,
           title: col.title || 'Untitled',
@@ -146,7 +151,7 @@ const NewTab = () => {
   );
 
   const createWorkspace = async () => {
-    const name = window.prompt('워크스페이스 이름');
+    const name = window.prompt('스페이스 이름');
     if (!name || !tree) return;
     await chrome.bookmarks.create({ parentId: tree.id, title: name.trim() });
     await refresh();
@@ -206,6 +211,33 @@ const NewTab = () => {
     await chrome.tabs.create({ url, active: true });
   };
 
+  const onDragCollectionStart = (e: React.DragEvent, collection: CollectionSummary) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData(
+      DND_COLLECTION_MIME,
+      JSON.stringify({
+        collectionId: collection.id,
+        title: collection.title,
+        workspaceId: collection.workspaceId,
+      }),
+    );
+  };
+
+  const onDropCollectionToWorkspace = async (e: React.DragEvent, targetWorkspace: BookmarkNode) => {
+    e.preventDefault();
+    setDropWorkspaceId(null);
+
+    const raw = e.dataTransfer.getData(DND_COLLECTION_MIME);
+    if (!raw) return;
+
+    const payload = JSON.parse(raw) as { collectionId?: string; title?: string; workspaceId?: string };
+    if (!payload.collectionId || !payload.workspaceId || payload.workspaceId === targetWorkspace.id) return;
+
+    await chrome.bookmarks.move(payload.collectionId, { parentId: targetWorkspace.id });
+    setToast(`'${payload.title || '컬렉션'}' → '${targetWorkspace.title || '스페이스'}' 이동됨`);
+    await refresh();
+  };
+
   const getFaviconSrc = (link: BookmarkNode) => {
     const candidates = getFaviconCandidates(link.url);
     const cached = getCachedFavicon(link.url);
@@ -226,7 +258,7 @@ const NewTab = () => {
   const onDropTabToCollection = async (e: React.DragEvent, collectionId: string) => {
     e.preventDefault();
     setDropCollectionId(null);
-    const raw = e.dataTransfer.getData('application/x-bookmark-workspace-tab');
+    const raw = e.dataTransfer.getData(DND_TAB_MIME);
     if (!raw) return;
 
     const payload = JSON.parse(raw) as { url?: string; title?: string };
@@ -274,12 +306,23 @@ const NewTab = () => {
           {!leftCollapsed ? (
             <>
               <button className="full" onClick={createWorkspace}>
-                + 워크스페이스
+                + 스페이스
               </button>
               <ul className="workspace-list">
                 {workspaces.map(ws => (
                   <li key={ws.id}>
-                    <button className={workspaceId === ws.id ? 'active' : ''} onClick={() => setWorkspaceId(ws.id)}>
+                    <button
+                      className={`${workspaceId === ws.id ? 'active' : ''} ${dropWorkspaceId === ws.id ? 'drop-target' : ''}`}
+                      onClick={() => setWorkspaceId(ws.id)}
+                      onDragOver={e => {
+                        if (!e.dataTransfer.types.includes(DND_COLLECTION_MIME)) return;
+                        e.preventDefault();
+                        if (dropWorkspaceId !== ws.id) setDropWorkspaceId(ws.id);
+                      }}
+                      onDragLeave={() => {
+                        if (dropWorkspaceId === ws.id) setDropWorkspaceId(null);
+                      }}
+                      onDrop={e => onDropCollectionToWorkspace(e, ws)}>
                       {ws.title}
                     </button>
                   </li>
@@ -299,7 +342,11 @@ const NewTab = () => {
               <article
                 key={col.id}
                 className={`col-card ${dropCollectionId === col.id ? 'drop-target' : ''}`}
+                draggable
+                onDragStart={e => onDragCollectionStart(e, col)}
+                onDragEnd={() => setDropWorkspaceId(null)}
                 onDragOver={e => {
+                  if (!e.dataTransfer.types.includes(DND_TAB_MIME)) return;
                   e.preventDefault();
                   setDropCollectionId(col.id);
                 }}
@@ -351,10 +398,7 @@ const NewTab = () => {
                   key={tab.id}
                   draggable
                   onDragStart={e => {
-                    e.dataTransfer.setData(
-                      'application/x-bookmark-workspace-tab',
-                      JSON.stringify({ title: tab.title, url: tab.url }),
-                    );
+                    e.dataTransfer.setData(DND_TAB_MIME, JSON.stringify({ title: tab.title, url: tab.url }));
                   }}>
                   <img className="fav" src={getFaviconCandidates(tab.url)[0]} alt="" />
                   <div>
@@ -385,7 +429,7 @@ const NewTab = () => {
         }}>
         <Command.Input
           className="cmdk-input"
-          placeholder="명령, 워크스페이스, 컬렉션 검색..."
+          placeholder="명령, 스페이스, 컬렉션 검색..."
           value={commandQuery}
           onValueChange={setCommandQuery}
         />
@@ -397,19 +441,19 @@ const NewTab = () => {
               컬렉션 만들기
             </Command.Item>
             <Command.Item className="cmdk-item" onSelect={() => runCommand(() => createWorkspace())}>
-              워크스페이스 만들기
+              스페이스 만들기
             </Command.Item>
             <Command.Item className="cmdk-item" onSelect={() => runCommand(() => saveWindow())}>
               현재 창 저장
             </Command.Item>
           </Command.Group>
 
-          <Command.Group heading="워크스페이스" className="cmdk-group">
+          <Command.Group heading="스페이스" className="cmdk-group">
             {workspaces.map(ws => (
               <Command.Item
                 key={ws.id}
                 className="cmdk-item"
-                value={`workspace-${ws.title}`}
+                value={`space-${ws.title}`}
                 onSelect={() =>
                   runCommand(() => {
                     setWorkspaceId(ws.id);
