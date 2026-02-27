@@ -2,6 +2,17 @@ const CACHE_KEY = 'bw:favicon-cache:v1';
 const SUCCESS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const FAILURE_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_ENTRIES = 500;
+const DEFAULT_SIZE = 32;
+
+type FaviconProvider = 'chain' | 'raycast' | 'google' | 'duckduckgo' | 'direct';
+
+const getProvider = (): FaviconProvider => {
+  const raw = String(import.meta.env.VITE_FAVICON_PROVIDER || 'chain').toLowerCase();
+  if (raw === 'raycast' || raw === 'google' || raw === 'duckduckgo' || raw === 'direct' || raw === 'chain') {
+    return raw;
+  }
+  return 'chain';
+};
 
 type CacheValue = {
   src: string;
@@ -55,12 +66,18 @@ export const getFaviconCandidates = (url?: string): string[] => {
   if (!domain) return [];
   if (isNegativeFaviconCached(url)) return [];
 
-  return [
-    `https://${domain}/favicon.ico`,
-    `https://${domain}/apple-touch-icon.png`,
-    `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`,
-    `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`,
-  ];
+  const encoded = encodeURIComponent(domain);
+  const direct = [`https://${domain}/favicon.ico`, `https://${domain}/apple-touch-icon.png`];
+  const google = [`https://www.google.com/s2/favicons?domain=${encoded}&sz=${DEFAULT_SIZE}`];
+  const duck = [`https://icons.duckduckgo.com/ip3/${encoded}.ico`];
+  const raycast = [`https://api.ray.so/favicon?url=${encoded}&size=${DEFAULT_SIZE}`];
+
+  const provider = getProvider();
+  if (provider === 'direct') return direct;
+  if (provider === 'google') return google;
+  if (provider === 'duckduckgo') return duck;
+  if (provider === 'raycast') return raycast;
+  return [...direct, ...google, ...duck, ...raycast];
 };
 
 export const getCachedFavicon = (url?: string): string | null => {
