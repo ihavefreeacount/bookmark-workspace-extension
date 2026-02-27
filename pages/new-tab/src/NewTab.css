@@ -98,6 +98,13 @@ button.active {
   box-shadow: 0 4px 14px rgba(17, 24, 39, 0.08);
 }
 
+.workspace-list button.active {
+  background: #ececf1;
+  color: #000;
+  font-weight: 600;
+  box-shadow: none;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 280px 1fr 340px;
@@ -159,6 +166,12 @@ button.active {
   overflow: auto;
 }
 
+.panel.left {
+  background: transparent;
+  box-shadow: none;
+  padding: 8px;
+}
+
 .expand-only {
   width: 100%;
   height: 44px;
@@ -184,11 +197,33 @@ button.active {
 .workspace-list button {
   width: 100%;
   text-align: left;
+  background: transparent;
+  box-shadow: none;
+  font-weight: 400;
+  color: #7f7f87;
+}
+
+.workspace-list button:hover {
+  background: #f1f1f5;
 }
 
 .workspace-list button.drop-target {
   background: #eff3fb;
   box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.35), 0 10px 22px rgba(17, 24, 39, 0.08);
+}
+
+.panel.left button.full {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  color: #007aff;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 10px;
+}
+
+.panel.left button.full:hover {
+  background: #eef4ff;
 }
 
 .grid {
