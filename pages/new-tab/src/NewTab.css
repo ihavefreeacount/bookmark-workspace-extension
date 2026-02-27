@@ -1,16 +1,17 @@
 :root {
-  --bg-canvas: #f3f4f6;
+  --bg-canvas: #f5f5f7;
   --bg-surface: #ffffff;
-  --line-subtle: #e5e7eb;
-  --line-strong: #d1d5db;
+  --line-subtle: #e8e8ed;
+  --line-strong: #d9d9e0;
   --text-primary: #111827;
-  --text-secondary: #6b7280;
+  --text-secondary: #7a7a84;
   --accent: #4b5563;
   --accent-soft: #f3f4f6;
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 18px;
-  --shadow-1: 0 1px 2px rgba(17, 24, 39, 0.04), 0 4px 12px rgba(17, 24, 39, 0.04);
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --shadow-1: 0 10px 30px rgba(17, 24, 39, 0.08);
+  --shadow-2: 0 16px 40px rgba(17, 24, 39, 0.1);
 }
 
 .nt-root {
@@ -44,12 +45,13 @@
 
 input,
 button {
-  border: 1px solid var(--line-strong);
+  border: none;
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: 11px 14px;
   font-size: 13px;
   background: var(--bg-surface);
   color: var(--text-primary);
+  box-shadow: 0 2px 10px rgba(17, 24, 39, 0.06);
 }
 
 button {
@@ -60,7 +62,7 @@ button {
 button.primary {
   background: #374151;
   color: #fff;
-  border-color: transparent;
+  box-shadow: 0 8px 22px rgba(55, 65, 81, 0.26);
 }
 
 button.primary:hover {
@@ -79,7 +81,7 @@ button.icon {
   width: 38px;
   padding: 0;
   font-size: 16px;
-  background: #f9fafb;
+  background: #fff;
 }
 
 .search-trigger {
@@ -93,7 +95,7 @@ button.full {
 
 button.active {
   background: var(--accent-soft);
-  border-color: #d1d5db;
+  box-shadow: 0 4px 14px rgba(17, 24, 39, 0.08);
 }
 
 .layout {
@@ -149,10 +151,10 @@ button.active {
 
 .panel {
   background: var(--bg-surface);
-  border: 1px solid var(--line-subtle);
+  border: none;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-1);
-  padding: 12px;
+  padding: 18px;
   min-height: calc(100vh - 110px);
   overflow: auto;
 }
@@ -179,8 +181,8 @@ button.active {
 }
 
 .workspace-list button.drop-target {
-  border-color: #9ca3af;
-  background: #eef2f7;
+  background: #eff3fb;
+  box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.35), 0 10px 22px rgba(17, 24, 39, 0.08);
 }
 
 .grid {
@@ -190,29 +192,28 @@ button.active {
 }
 
 .col-card {
-  border: 1px solid var(--line-subtle);
+  border: none;
   border-radius: var(--radius-md);
-  padding: 10px;
+  padding: 16px;
   background: var(--bg-surface);
   cursor: grab;
+  box-shadow: var(--shadow-1);
 }
 
 .col-head {
-  margin-bottom: 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--line-subtle);
+  margin-bottom: 12px;
+  padding-bottom: 2px;
 }
 
 .col-title {
   margin: 0;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 800;
   line-height: 1.25;
 }
 
 .col-card.drop-target {
-  border-color: #9ca3af;
-  box-shadow: inset 0 0 0 2px #e5e7eb;
+  box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.35), var(--shadow-2);
 }
 
 .link-row,
@@ -220,12 +221,13 @@ button.active {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   text-align: left;
   border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  background: #f9fafb;
-  padding: 8px;
+  border: none;
+  background: #fff;
+  padding: 12px;
+  box-shadow: 0 4px 16px rgba(17, 24, 39, 0.06);
 }
 
 .tab-list li {
@@ -239,8 +241,8 @@ button.active {
 
 .link-row:hover,
 .tab-list li:hover {
-  background: #f3f4f6;
-  border-color: #e5e7eb;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(17, 24, 39, 0.1);
 }
 
 .fav {
@@ -256,7 +258,8 @@ button.active {
 
 .link-title,
 .tab-title {
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -264,7 +267,7 @@ button.active {
 
 .link-domain,
 .tab-domain {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -278,7 +281,7 @@ button.active {
 .secondary-actions summary {
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   user-select: none;
   list-style: none;
 }
@@ -288,7 +291,7 @@ button.active {
 }
 
 .row-inline {
-  margin-top: 6px;
+  margin-top: 10px;
   display: flex;
   gap: 6px;
 }
@@ -319,20 +322,21 @@ button.active {
   transform: translateX(-50%);
   width: min(720px, calc(100vw - 32px));
   background: #fff;
-  border: 1px solid var(--line-subtle);
+  border: none;
   border-radius: 14px;
-  box-shadow: 0 12px 36px rgba(17, 24, 39, 0.15);
+  box-shadow: 0 20px 50px rgba(17, 24, 39, 0.2);
   overflow: hidden;
 }
 
 .cmdk-input {
   width: 100%;
   border: 0;
-  border-bottom: 1px solid var(--line-subtle);
+  border-bottom: 1px solid #f0f0f3;
   border-radius: 0;
-  padding: 14px 16px;
+  padding: 16px 18px;
   font-size: 14px;
   outline: none;
+  box-shadow: none;
 }
 
 .cmdk-list {
@@ -360,14 +364,13 @@ button.active {
 }
 
 .cmdk-item {
-  border: 1px solid transparent;
+  border: none;
   border-radius: 10px;
-  padding: 9px 10px;
+  padding: 10px 12px;
   font-size: 13px;
   cursor: pointer;
 }
 
 .cmdk-item[data-selected='true'] {
-  background: #f3f4f6;
-  border-color: #e5e7eb;
+  background: #f5f6fa;
 }
