@@ -1,6 +1,6 @@
-const CACHE_KEY = 'bw:favicon-cache:v1';
+const CACHE_KEY = 'bw:favicon-cache:v2';
 const SUCCESS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const FAILURE_TTL_MS = 24 * 60 * 60 * 1000;
+const FAILURE_TTL_MS = 10 * 60 * 1000;
 const MAX_ENTRIES = 500;
 const DEFAULT_SIZE = 32;
 
@@ -64,7 +64,6 @@ export const getFaviconCandidates = (url?: string): string[] => {
   if (!url) return [];
   const domain = getDomain(url);
   if (!domain) return [];
-  if (isNegativeFaviconCached(url)) return [];
 
   const encoded = encodeURIComponent(domain);
   const direct = [`https://${domain}/favicon.ico`, `https://${domain}/apple-touch-icon.png`];
