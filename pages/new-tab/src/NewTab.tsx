@@ -1,4 +1,10 @@
-import { getCachedFavicon, getDomain, getFaviconCandidates, rememberFavicon } from '@src/lib/favicon-resolver';
+import {
+  getCachedFavicon,
+  getDomain,
+  getFaviconCandidates,
+  rememberFavicon,
+  rememberFaviconFailure,
+} from '@src/lib/favicon-resolver';
 import { Command } from 'cmdk';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import '@src/NewTab.css';
@@ -205,6 +211,9 @@ const NewTab = () => {
       if (!tab.url || !/^https?:\/\//.test(tab.url) || seen.has(tab.url)) continue;
       seen.add(tab.url);
       await chrome.bookmarks.create({ parentId: collection.id, title: tab.title || tab.url, url: tab.url });
+      if (tab.favIconUrl) {
+        rememberFavicon(tab.url, tab.favIconUrl, 'tab-favicon');
+      }
       count += 1;
     }
     setToast(`${count}개 링크 저장됨`);
@@ -281,7 +290,11 @@ const NewTab = () => {
     const candidates = getFaviconCandidates(link.url);
     setFaviconIndexById(prev => {
       const next = { ...prev };
-      next[link.id] = Math.min((next[link.id] ?? 0) + 1, Math.max(0, candidates.length - 1));
+      const nextIndex = (next[link.id] ?? 0) + 1;
+      if (nextIndex > Math.max(0, candidates.length - 1)) {
+        rememberFaviconFailure(link.url);
+      }
+      next[link.id] = Math.min(nextIndex, Math.max(0, candidates.length - 1));
       return next;
     });
   };
@@ -294,10 +307,13 @@ const NewTab = () => {
     const raw = e.dataTransfer.getData(DND_TAB_MIME);
     if (!raw) return;
 
-    const payload = JSON.parse(raw) as { url?: string; title?: string };
+    const payload = JSON.parse(raw) as { url?: string; title?: string; favIconUrl?: string };
     if (!payload.url) return;
 
     await chrome.bookmarks.create({ parentId: collectionId, title: payload.title || payload.url, url: payload.url });
+    if (payload.favIconUrl) {
+      rememberFavicon(payload.url, payload.favIconUrl, 'tab-favicon');
+    }
     setToast('링크 저장됨');
     await refresh();
   };
@@ -437,7 +453,10 @@ const NewTab = () => {
                   draggable
                   onDragStart={e => {
                     setDragKind('tab');
-                    e.dataTransfer.setData(DND_TAB_MIME, JSON.stringify({ title: tab.title, url: tab.url }));
+                    e.dataTransfer.setData(
+                      DND_TAB_MIME,
+                      JSON.stringify({ title: tab.title, url: tab.url, favIconUrl: tab.favIconUrl }),
+                    );
                   }}
                   onDragEnd={() => {
                     setDropCollectionId(null);

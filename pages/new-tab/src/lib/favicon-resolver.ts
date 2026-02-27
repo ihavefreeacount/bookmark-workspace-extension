@@ -1,71 +1,112 @@
 const CACHE_KEY = 'bw:favicon-cache:v1';
-const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const SUCCESS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const FAILURE_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_ENTRIES = 500;
 
 type CacheValue = {
   src: string;
   at: number;
+  ok: boolean;
+  provider?: string;
 };
 
 type CacheMap = Record<string, CacheValue>;
 
-function safeParse(json: string | null): CacheMap {
+const safeParse = (json: string | null): CacheMap => {
   if (!json) return {};
   try {
     return JSON.parse(json) as CacheMap;
   } catch {
     return {};
   }
-}
+};
 
-function readCache(): CacheMap {
-  return safeParse(localStorage.getItem(CACHE_KEY));
-}
+const readCache = (): CacheMap => safeParse(localStorage.getItem(CACHE_KEY));
 
-function writeCache(cache: CacheMap) {
+const writeCache = (cache: CacheMap) => {
   localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-}
+};
 
-export function getDomain(url?: string) {
+const pruneCache = (cache: CacheMap) => {
+  const entries = Object.entries(cache);
+  if (entries.length <= MAX_ENTRIES) return cache;
+  entries.sort((a, b) => (a[1].at || 0) - (b[1].at || 0));
+  const trimmed = entries.slice(entries.length - MAX_ENTRIES);
+  return Object.fromEntries(trimmed);
+};
+
+const isExpired = (entry: CacheValue) => {
+  const ttl = entry.ok ? SUCCESS_TTL_MS : FAILURE_TTL_MS;
+  return Date.now() - entry.at > ttl;
+};
+
+export const getDomain = (url?: string) => {
   if (!url) return '';
   try {
     return new URL(url).hostname.replace(/^www\./, '');
   } catch {
     return '';
   }
-}
+};
 
-export function getFaviconCandidates(url?: string): string[] {
+export const getFaviconCandidates = (url?: string): string[] => {
   if (!url) return [];
   const domain = getDomain(url);
   if (!domain) return [];
+  if (isNegativeFaviconCached(url)) return [];
 
-  // External providers are always ON by product decision.
   return [
+    `https://${domain}/favicon.ico`,
+    `https://${domain}/apple-touch-icon.png`,
     `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`,
     `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`,
   ];
-}
+};
 
-export function getCachedFavicon(url?: string): string | null {
+export const getCachedFavicon = (url?: string): string | null => {
   const domain = getDomain(url);
   if (!domain) return null;
 
   const cache = readCache();
   const entry = cache[domain];
   if (!entry) return null;
-  if (Date.now() - entry.at > TTL_MS) {
+  if (isExpired(entry)) {
     delete cache[domain];
     writeCache(cache);
     return null;
   }
-  return entry.src;
-}
+  return entry.ok ? entry.src : null;
+};
 
-export function rememberFavicon(url: string | undefined, src: string) {
+export const isNegativeFaviconCached = (url?: string): boolean => {
+  const domain = getDomain(url);
+  if (!domain) return false;
+
+  const cache = readCache();
+  const entry = cache[domain];
+  if (!entry) return false;
+  if (isExpired(entry)) {
+    delete cache[domain];
+    writeCache(cache);
+    return false;
+  }
+  return !entry.ok;
+};
+
+export const rememberFavicon = (url: string | undefined, src: string, provider = 'unknown') => {
   const domain = getDomain(url);
   if (!domain || !src) return;
 
-  const cache = readCache();
-  cache[domain] = { src, at: Date.now() };
-  writeCache(cache);
-}
+  const next = readCache();
+  next[domain] = { src, at: Date.now(), ok: true, provider };
+  writeCache(pruneCache(next));
+};
+
+export const rememberFaviconFailure = (url?: string, provider = 'chain-exhausted') => {
+  const domain = getDomain(url);
+  if (!domain) return;
+
+  const next = readCache();
+  next[domain] = { src: '', at: Date.now(), ok: false, provider };
+  writeCache(pruneCache(next));
+};
