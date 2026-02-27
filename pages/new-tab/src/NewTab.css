@@ -63,6 +63,7 @@ button.primary {
   background: #374151;
   color: #fff;
   box-shadow: 0 8px 22px rgba(55, 65, 81, 0.26);
+  border-radius: 999px;
 }
 
 button.primary:hover {
@@ -172,6 +173,22 @@ button.active {
   padding: 8px;
 }
 
+.panel.right {
+  background: var(--bg-canvas);
+  border-radius: 0;
+  box-shadow: none;
+  border-left: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.top-actions button:not(.primary) {
+  background: transparent;
+  box-shadow: none;
+}
+
+.top-actions button:not(.primary):hover {
+  background: #ececf1;
+}
+
 .expand-only {
   width: 100%;
   height: 44px;
@@ -268,7 +285,7 @@ button.active {
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
-  padding: 12px;
+  padding: 16px 14px;
   box-shadow: none;
   transition: background-color 120ms ease;
 }
@@ -311,8 +328,8 @@ button.active {
 
 .link-domain,
 .tab-domain {
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: 11px;
+  color: #8e8e93;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
