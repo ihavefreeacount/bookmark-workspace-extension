@@ -205,6 +205,20 @@ button.active {
   gap: 6px;
 }
 
+.panel-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.panel-section-icon {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
 .link-list li + li,
 .tab-list li + li {
   border-top: 1px solid #f0f0f3;
@@ -292,6 +306,15 @@ button.active {
 
 .tab-list li {
   cursor: grab;
+}
+
+.tab-list li.active {
+  background: #eaf2ff;
+}
+
+.tab-list li.active .tab-title {
+  color: #1f2937;
+  font-weight: 600;
 }
 
 .tab-list li > div {
