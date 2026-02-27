@@ -10,8 +10,8 @@
   --radius-sm: 12px;
   --radius-md: 16px;
   --radius-lg: 20px;
-  --shadow-1: 0 10px 30px rgba(17, 24, 39, 0.08);
-  --shadow-2: 0 16px 40px rgba(17, 24, 39, 0.1);
+  --shadow-1: 0 4px 24px rgba(0, 0, 0, 0.04);
+  --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.06);
 }
 
 .nt-root {
@@ -175,6 +175,12 @@ button.active {
   gap: 6px;
 }
 
+.link-list li + li,
+.tab-list li + li {
+  border-top: 1px solid #f0f0f3;
+  padding-top: 6px;
+}
+
 .workspace-list button {
   width: 100%;
   text-align: left;
@@ -201,15 +207,16 @@ button.active {
 }
 
 .col-head {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   padding-bottom: 2px;
 }
 
 .col-title {
   margin: 0;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
   line-height: 1.25;
+  color: #111111;
 }
 
 .col-card.drop-target {
@@ -225,9 +232,10 @@ button.active {
   text-align: left;
   border-radius: var(--radius-sm);
   border: none;
-  background: #fff;
+  background: transparent;
   padding: 12px;
-  box-shadow: 0 4px 16px rgba(17, 24, 39, 0.06);
+  box-shadow: none;
+  transition: background-color 120ms ease;
 }
 
 .tab-list li {
@@ -241,8 +249,8 @@ button.active {
 
 .link-row:hover,
 .tab-list li:hover {
-  background: #fff;
-  box-shadow: 0 8px 24px rgba(17, 24, 39, 0.1);
+  background: #f6f6f9;
+  box-shadow: none;
 }
 
 .fav {
@@ -258,8 +266,9 @@ button.active {
 
 .link-title,
 .tab-title {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4b5563;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
