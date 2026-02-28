@@ -192,7 +192,7 @@ button.active {
 }
 
 .panel.right {
-  background: var(--bg-canvas);
+  background: transparent;
   border-radius: 0;
   box-shadow: none;
   border-left: 1px solid rgba(0, 0, 0, 0.05);
