@@ -332,17 +332,53 @@ const NewTab = () => {
     <div className="nt-root">
       <header className="nt-header">
         <div className="top-actions">
-          <button className="icon search-trigger" onClick={() => setCommandOpen(true)} title="검색 / 커맨드 (⌘K)">
-            ⌕
+          <button
+            className="tool-btn"
+            onClick={() => setCommandOpen(true)}
+            title="검색 / 커맨드 (⌘K)"
+            aria-label="검색 / 커맨드">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M16.2 16.2L21 21" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
           </button>
-          <button className="icon" onClick={createCollection} title="컬렉션 추가" aria-label="컬렉션 추가">
-            ⊞
+          <button className="tool-btn" onClick={createCollection} title="컬렉션 추가" aria-label="컬렉션 추가">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="4" y="4" width="6" height="6" rx="1.5" />
+              <rect x="14" y="4" width="6" height="6" rx="1.5" />
+              <rect x="4" y="14" width="6" height="6" rx="1.5" />
+              <rect x="14" y="14" width="6" height="6" rx="1.5" />
+            </svg>
           </button>
-          <button className="primary" onClick={saveWindow}>
-            창 저장
+          <button className="tool-btn" onClick={saveWindow} title="현재 창 저장" aria-label="현재 창 저장">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M8 4.5h8a1.5 1.5 0 0 1 1.5 1.5v13l-5.5-3-5.5 3V6A1.5 1.5 0 0 1 8 4.5Z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M12 8.2v4.2M9.9 10.3h4.2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
-          <button className="icon" onClick={() => setRightCollapsed(v => !v)} title="오른쪽 패널">
-            {rightCollapsed ? '⟪' : '⟫'}
+          <button
+            className="tool-btn"
+            onClick={() => setRightCollapsed(v => !v)}
+            title={rightCollapsed ? '추가 액션 열기' : '추가 액션 닫기'}
+            aria-label="추가 액션">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="8.1" fill="none" stroke="currentColor" strokeWidth="1.6" />
+              <circle cx="9" cy="12" r="1.1" />
+              <circle cx="12" cy="12" r="1.1" />
+              <circle cx="15" cy="12" r="1.1" />
+            </svg>
           </button>
         </div>
       </header>
