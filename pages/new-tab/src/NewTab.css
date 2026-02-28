@@ -440,26 +440,58 @@ button.active {
   text-overflow: ellipsis;
 }
 
-.secondary-actions {
+.col-actions {
   margin-top: 6px;
-}
-
-.secondary-actions summary {
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 13px;
-  user-select: none;
-  list-style: none;
-}
-
-.secondary-actions summary::-webkit-details-marker {
-  display: none;
-}
-
-.row-inline {
-  margin-top: 10px;
   display: flex;
-  gap: 6px;
+  justify-content: flex-end;
+}
+
+.col-actions-trigger {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: #5b6472;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.col-actions-trigger svg {
+  width: 16px;
+  height: 16px;
+}
+
+.col-actions-trigger:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1f2937;
+}
+
+.col-actions-menu {
+  min-width: 132px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 14px 30px rgba(17, 24, 39, 0.16);
+  padding: 4px;
+  z-index: 40;
+}
+
+.col-actions-item {
+  font-size: 12px;
+  color: #374151;
+  border-radius: 7px;
+  padding: 7px 9px;
+  outline: none;
+  cursor: pointer;
+}
+
+.col-actions-item[data-highlighted] {
+  background: #eef2f7;
+  color: #111827;
 }
 
 .toast {

@@ -1,3 +1,4 @@
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
   getCachedFavicon,
   getDomain,
@@ -595,13 +596,38 @@ const NewTab = () => {
                   })}
                 </ul>
 
-                <details className="secondary-actions">
-                  <summary>작업</summary>
-                  <div className="row-inline">
-                    <button onClick={() => openCollection(col.id, 'group')}>그룹 열기</button>
-                    <button onClick={() => openCollection(col.id, 'new-window')}>새 창 열기</button>
-                  </div>
-                </details>
+                <div className="col-actions">
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild>
+                      <button
+                        className="col-actions-trigger"
+                        type="button"
+                        title="컬렉션 작업"
+                        aria-label="컬렉션 작업"
+                        onPointerDown={e => e.stopPropagation()}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <circle cx="9" cy="12" r="1.2" />
+                          <circle cx="12" cy="12" r="1.2" />
+                          <circle cx="15" cy="12" r="1.2" />
+                        </svg>
+                      </button>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Portal>
+                      <DropdownMenu.Content className="col-actions-menu" align="end" sideOffset={6}>
+                        <DropdownMenu.Item
+                          className="col-actions-item"
+                          onSelect={() => void openCollection(col.id, 'group')}>
+                          그룹 열기
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item
+                          className="col-actions-item"
+                          onSelect={() => void openCollection(col.id, 'new-window')}>
+                          새 창 열기
+                        </DropdownMenu.Item>
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                  </DropdownMenu.Root>
+                </div>
               </article>
             ))}
           </div>
