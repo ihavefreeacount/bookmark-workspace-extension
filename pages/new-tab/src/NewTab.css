@@ -31,9 +31,9 @@
 .nt-header {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .brand {
@@ -42,18 +42,11 @@
   letter-spacing: -0.02em;
 }
 
-.top-actions {
+.header-left-actions,
+.header-right-actions {
   display: flex;
   gap: 4px;
-  width: fit-content;
-  justify-content: center;
-  padding: 6px;
   align-items: center;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.04);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.38),
-    0 4px 14px rgba(17, 24, 39, 0.05);
 }
 
 input,
@@ -106,12 +99,12 @@ button.icon {
   font-size: 15px;
 }
 
-.top-actions .tool-btn {
+.tool-btn {
   width: 34px;
   height: 34px;
   padding: 0;
   border: none;
-  border-radius: 999px;
+  border-radius: 10px;
   background: transparent;
   box-shadow: none;
   color: #5b6472;
@@ -124,17 +117,30 @@ button.icon {
     box-shadow 160ms ease;
 }
 
-.top-actions .tool-btn svg {
+.tool-btn svg {
   width: 18px;
   height: 18px;
 }
 
-.top-actions .tool-btn:hover {
-  background: #fff;
+.tool-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
   color: #18212e;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9),
-    0 6px 12px rgba(17, 24, 39, 0.08);
+}
+
+.save-window-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 14px;
+  min-width: 68px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #1f2937;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(17, 24, 39, 0.22);
+}
+
+.save-window-btn:hover {
+  background: #111827;
 }
 
 button.active {

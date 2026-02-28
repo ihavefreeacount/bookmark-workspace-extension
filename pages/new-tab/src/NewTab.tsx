@@ -331,7 +331,7 @@ const NewTab = () => {
   return (
     <div className="nt-root">
       <header className="nt-header">
-        <div className="top-actions">
+        <div className="header-left-actions">
           <button
             className="tool-btn"
             onClick={() => setLeftCollapsed(v => !v)}
@@ -352,6 +352,8 @@ const NewTab = () => {
               <path d="M9.5 6.8v10.4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </button>
+        </div>
+        <div className="header-right-actions">
           <button
             className="tool-btn"
             onClick={() => setCommandOpen(true)}
@@ -370,23 +372,8 @@ const NewTab = () => {
               <rect x="14" y="14" width="6" height="6" rx="1.5" />
             </svg>
           </button>
-          <button className="tool-btn" onClick={saveWindow} title="현재 창 저장" aria-label="현재 창 저장">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M8 4.5h8a1.5 1.5 0 0 1 1.5 1.5v13l-5.5-3-5.5 3V6A1.5 1.5 0 0 1 8 4.5Z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M12 8.2v4.2M9.9 10.3h4.2"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-            </svg>
+          <button className="save-window-btn" onClick={saveWindow} title="현재 창 저장" aria-label="현재 창 저장">
+            창 저장
           </button>
           <button
             className="tool-btn"
@@ -394,10 +381,17 @@ const NewTab = () => {
             title={rightCollapsed ? '추가 액션 열기' : '추가 액션 닫기'}
             aria-label="추가 액션">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="8.1" fill="none" stroke="currentColor" strokeWidth="1.6" />
-              <circle cx="9" cy="12" r="1.1" />
-              <circle cx="12" cy="12" r="1.1" />
-              <circle cx="15" cy="12" r="1.1" />
+              <rect
+                x="4.5"
+                y="5.5"
+                width="15"
+                height="13"
+                rx="2.2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+              />
+              <path d="M14.5 6.8v10.4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </button>
         </div>
