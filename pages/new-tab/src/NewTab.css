@@ -212,13 +212,15 @@ button.active {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
-  color: #4b5563;
+  color: #333333;
   font-size: 13px;
 }
 
 .panel-section-icon {
-  filter: grayscale(1);
-  opacity: 0.55;
+  width: 15px;
+  height: 15px;
+  color: #333333;
+  opacity: 0.9;
 }
 
 .link-list li + li,

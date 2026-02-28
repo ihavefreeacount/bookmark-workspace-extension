@@ -607,9 +607,16 @@ const NewTab = () => {
         <aside className="panel right">
           <div className="panel-content">
             <div className="panel-section-header">
-              <span className="panel-section-icon" aria-hidden>
-                🌐
-              </span>
+              <svg className="panel-section-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                <path
+                  d="M4.4 12h15.2M12 4.4c2.4 2.4 2.4 12.8 0 15.2M12 4.4c-2.4 2.4-2.4 12.8 0 15.2"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
+              </svg>
               <strong>현재 열려있는 탭</strong>
             </div>
             <ul className="tab-list">
