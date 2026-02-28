@@ -411,16 +411,6 @@ const NewTab = () => {
           </button>
         </div>
         <div className="header-right-actions">
-          <button
-            className="tool-btn"
-            onClick={() => setCommandOpen(true)}
-            title="검색 / 커맨드 (⌘K)"
-            aria-label="검색 / 커맨드">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
-              <path d="M16.2 16.2L21 21" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </button>
           <button className="tool-btn" onClick={openCollectionInlineInput} title="컬렉션 추가" aria-label="컬렉션 추가">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -430,6 +420,16 @@ const NewTab = () => {
                 strokeWidth="1.8"
                 strokeLinecap="round"
               />
+            </svg>
+          </button>
+          <button
+            className="tool-btn"
+            onClick={() => setCommandOpen(true)}
+            title="검색 / 커맨드 (⌘K)"
+            aria-label="검색 / 커맨드">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M16.2 16.2L21 21" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
           </button>
           <button
