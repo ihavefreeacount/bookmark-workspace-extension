@@ -174,40 +174,6 @@ button.active {
   grid-template-columns: 56px 1fr 56px;
 }
 
-.sidebar-handle {
-  position: absolute;
-  top: 50%;
-  width: 24px;
-  height: 48px;
-  transform: translateY(-50%);
-  border: 1px solid #d1d5db;
-  border-radius: 999px;
-  padding: 0;
-  font-size: 16px;
-  line-height: 1;
-  color: #6b7280;
-  background: rgba(255, 255, 255, 0.86);
-  backdrop-filter: blur(1px);
-  z-index: 5;
-}
-
-.sidebar-handle:hover {
-  border-color: #c4cad3;
-  color: #4b5563;
-}
-
-.sidebar-handle-left {
-  left: 266px;
-  transition:
-    left 180ms ease,
-    border-color 120ms ease,
-    color 120ms ease;
-}
-
-.layout.left-collapsed .sidebar-handle-left {
-  left: 42px;
-}
-
 .panel {
   background: var(--bg-surface);
   border: none;
@@ -222,6 +188,22 @@ button.active {
   background: transparent;
   box-shadow: none;
   padding: 8px;
+  position: relative;
+  padding-right: 14px;
+}
+
+.panel.left::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.layout.left-collapsed .panel.left::after {
+  display: none;
 }
 
 .panel.right {
@@ -229,20 +211,6 @@ button.active {
   border-radius: 0;
   box-shadow: none;
   border-left: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.top-actions button:not(.primary) {
-  background: transparent;
-  box-shadow: none;
-  color: #4b5563;
-}
-
-.top-actions button:not(.primary):hover {
-  background: #ececf1;
-}
-
-.top-actions .primary {
-  margin-left: auto;
 }
 
 .expand-only {

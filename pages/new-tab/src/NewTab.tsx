@@ -334,6 +334,26 @@ const NewTab = () => {
         <div className="top-actions">
           <button
             className="tool-btn"
+            onClick={() => setLeftCollapsed(v => !v)}
+            title={leftCollapsed ? '사이드바 열기' : '사이드바 닫기'}
+            aria-label={leftCollapsed ? '사이드바 열기' : '사이드바 닫기'}
+            aria-expanded={!leftCollapsed}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect
+                x="4.5"
+                y="5.5"
+                width="15"
+                height="13"
+                rx="2.2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+              />
+              <path d="M9.5 6.8v10.4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </button>
+          <button
+            className="tool-btn"
             onClick={() => setCommandOpen(true)}
             title="검색 / 커맨드 (⌘K)"
             aria-label="검색 / 커맨드">
@@ -413,14 +433,6 @@ const NewTab = () => {
             </>
           )}
         </aside>
-        <button
-          className={`sidebar-handle sidebar-handle-left ${leftCollapsed ? 'collapsed' : ''}`}
-          onClick={() => setLeftCollapsed(v => !v)}
-          aria-label={leftCollapsed ? '왼쪽 패널 열기' : '왼쪽 패널 닫기'}
-          aria-expanded={!leftCollapsed}
-          title={leftCollapsed ? '왼쪽 패널 열기' : '왼쪽 패널 닫기'}>
-          {leftCollapsed ? '›' : '‹'}
-        </button>
 
         <section className="panel center">
           <div className="grid">
