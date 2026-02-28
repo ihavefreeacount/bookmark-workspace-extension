@@ -71,6 +71,10 @@ const NewTab = () => {
   const [workspaceInlineName, setWorkspaceInlineName] = useState('');
   const [workspaceInlineBusy, setWorkspaceInlineBusy] = useState(false);
   const workspaceInlineRef = useRef<HTMLInputElement | null>(null);
+  const [collectionInlineOpen, setCollectionInlineOpen] = useState(false);
+  const [collectionInlineName, setCollectionInlineName] = useState('');
+  const [collectionInlineBusy, setCollectionInlineBusy] = useState(false);
+  const collectionInlineRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = useCallback(async () => {
     const next = await loadTree();
@@ -126,6 +130,11 @@ const NewTab = () => {
     if (!workspaceInlineOpen) return;
     workspaceInlineRef.current?.focus();
   }, [workspaceInlineOpen]);
+
+  useEffect(() => {
+    if (!collectionInlineOpen) return;
+    collectionInlineRef.current?.focus();
+  }, [collectionInlineOpen]);
 
   useEffect(() => {
     window.localStorage.setItem(LS_SELECTED_SPACE, workspaceId);
@@ -218,11 +227,30 @@ const NewTab = () => {
     closeWorkspaceInlineInput();
   };
 
-  const createCollection = async () => {
+  const openCollectionInlineInput = () => {
     if (!workspaceId) return;
-    const name = window.prompt('컬렉션 이름');
-    if (!name) return;
-    await chrome.bookmarks.create({ parentId: workspaceId, title: name.trim() });
+    setCollectionInlineName('');
+    setCollectionInlineOpen(true);
+  };
+
+  const closeCollectionInlineInput = () => {
+    setCollectionInlineOpen(false);
+    setCollectionInlineName('');
+    setCollectionInlineBusy(false);
+  };
+
+  const submitCollectionInlineInput = async () => {
+    if (collectionInlineBusy) return;
+    const name = collectionInlineName.trim();
+    if (!name || !workspaceId) {
+      closeCollectionInlineInput();
+      return;
+    }
+
+    setCollectionInlineBusy(true);
+    await chrome.bookmarks.create({ parentId: workspaceId, title: name });
+    await refresh();
+    closeCollectionInlineInput();
   };
 
   const saveWindow = async () => {
@@ -392,7 +420,7 @@ const NewTab = () => {
               <path d="M16.2 16.2L21 21" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
           </button>
-          <button className="tool-btn" onClick={createCollection} title="컬렉션 추가" aria-label="컬렉션 추가">
+          <button className="tool-btn" onClick={openCollectionInlineInput} title="컬렉션 추가" aria-label="컬렉션 추가">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <rect x="4" y="4" width="6" height="6" rx="1.5" />
               <rect x="14" y="4" width="6" height="6" rx="1.5" />
@@ -498,6 +526,33 @@ const NewTab = () => {
 
         <section className="panel center">
           <div className="grid">
+            {collectionInlineOpen && (
+              <article className="col-card inline-input-card">
+                <div className="col-head">
+                  <input
+                    ref={collectionInlineRef}
+                    className="col-inline-input"
+                    type="text"
+                    placeholder="새 컬렉션 이름..."
+                    value={collectionInlineName}
+                    onChange={e => setCollectionInlineName(e.currentTarget.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void submitCollectionInlineInput();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeCollectionInlineInput();
+                      }
+                    }}
+                    onBlur={() => {
+                      void submitCollectionInlineInput();
+                    }}
+                    disabled={collectionInlineBusy}
+                  />
+                </div>
+              </article>
+            )}
             {collections.map(col => (
               <article
                 key={col.id}
@@ -619,7 +674,7 @@ const NewTab = () => {
           <Command.Empty className="cmdk-empty">결과가 없습니다.</Command.Empty>
 
           <Command.Group heading="빠른 작업" className="cmdk-group">
-            <Command.Item className="cmdk-item" onSelect={() => runCommand(() => createCollection())}>
+            <Command.Item className="cmdk-item" onSelect={() => runCommand(() => openCollectionInlineInput())}>
               컬렉션 만들기
             </Command.Item>
             <Command.Item className="cmdk-item" onSelect={() => runCommand(() => openWorkspaceInlineInput())}>
