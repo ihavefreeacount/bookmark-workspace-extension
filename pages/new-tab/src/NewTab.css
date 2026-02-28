@@ -127,22 +127,6 @@ button.icon {
   color: #18212e;
 }
 
-.save-window-btn {
-  border: none;
-  border-radius: 999px;
-  padding: 10px 14px;
-  min-width: 68px;
-  font-size: 12px;
-  font-weight: 600;
-  background: #1f2937;
-  color: #fff;
-  box-shadow: 0 8px 20px rgba(17, 24, 39, 0.22);
-}
-
-.save-window-btn:hover {
-  background: #111827;
-}
-
 button.active {
   background: var(--accent-soft);
   box-shadow: 0 4px 14px rgba(17, 24, 39, 0.08);

@@ -428,9 +428,6 @@ const NewTab = () => {
               <rect x="14" y="14" width="6" height="6" rx="1.5" />
             </svg>
           </button>
-          <button className="save-window-btn" onClick={saveWindow} title="현재 창 저장" aria-label="현재 창 저장">
-            창 저장
-          </button>
           <button
             className="tool-btn"
             onClick={() => setRightCollapsed(v => !v)}
