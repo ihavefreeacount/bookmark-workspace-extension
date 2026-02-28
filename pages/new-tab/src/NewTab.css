@@ -173,29 +173,12 @@ button.active {
   background: transparent;
   box-shadow: none;
   padding: 8px;
-  position: relative;
-  padding-right: 14px;
-}
-
-.panel.left::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(0, 0, 0, 0.05);
-}
-
-.layout.left-collapsed .panel.left::after {
-  display: none;
 }
 
 .panel.right {
   background: transparent;
   border-radius: 0;
   box-shadow: none;
-  border-left: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .panel-content {
