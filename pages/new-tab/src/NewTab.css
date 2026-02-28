@@ -270,6 +270,28 @@ button.active {
     0 10px 22px rgba(17, 24, 39, 0.08);
 }
 
+.workspace-inline-input-item {
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.workspace-inline-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+  color: #1c1c1e;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0;
+}
+
+.workspace-inline-input::placeholder {
+  color: #a1a1aa;
+}
+
 .workspace-add-button {
   width: 100%;
   text-align: left;

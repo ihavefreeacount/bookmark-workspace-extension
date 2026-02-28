@@ -6,7 +6,7 @@ import {
   rememberFaviconFailure,
 } from '@src/lib/favicon-resolver';
 import { Command } from 'cmdk';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import '@src/NewTab.css';
 
 type BookmarkNode = chrome.bookmarks.BookmarkTreeNode;
@@ -67,6 +67,10 @@ const NewTab = () => {
   const [dropWorkspaceId, setDropWorkspaceId] = useState<string | null>(null);
   const [dragKind, setDragKind] = useState<'tab' | 'collection' | null>(null);
   const [toast, setToast] = useState('');
+  const [workspaceInlineOpen, setWorkspaceInlineOpen] = useState(false);
+  const [workspaceInlineName, setWorkspaceInlineName] = useState('');
+  const [workspaceInlineBusy, setWorkspaceInlineBusy] = useState(false);
+  const workspaceInlineRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = useCallback(async () => {
     const next = await loadTree();
@@ -117,6 +121,11 @@ const NewTab = () => {
     const t = setTimeout(() => setToast(''), 1400);
     return () => clearTimeout(t);
   }, [toast]);
+
+  useEffect(() => {
+    if (!workspaceInlineOpen) return;
+    workspaceInlineRef.current?.focus();
+  }, [workspaceInlineOpen]);
 
   useEffect(() => {
     window.localStorage.setItem(LS_SELECTED_SPACE, workspaceId);
@@ -183,11 +192,30 @@ const NewTab = () => {
     return out;
   }, [workspaces]);
 
-  const createWorkspace = async () => {
-    const name = window.prompt('스페이스 이름');
-    if (!name || !tree) return;
-    await chrome.bookmarks.create({ parentId: tree.id, title: name.trim() });
+  const openWorkspaceInlineInput = () => {
+    setLeftCollapsed(false);
+    setWorkspaceInlineName('');
+    setWorkspaceInlineOpen(true);
+  };
+
+  const closeWorkspaceInlineInput = () => {
+    setWorkspaceInlineOpen(false);
+    setWorkspaceInlineName('');
+    setWorkspaceInlineBusy(false);
+  };
+
+  const submitWorkspaceInlineInput = async () => {
+    if (workspaceInlineBusy) return;
+    const name = workspaceInlineName.trim();
+    if (!name || !tree) {
+      closeWorkspaceInlineInput();
+      return;
+    }
+
+    setWorkspaceInlineBusy(true);
+    await chrome.bookmarks.create({ parentId: tree.id, title: name });
     await refresh();
+    closeWorkspaceInlineInput();
   };
 
   const createCollection = async () => {
@@ -420,10 +448,35 @@ const NewTab = () => {
                     </button>
                   </li>
                 ))}
+                {workspaceInlineOpen && (
+                  <li className="workspace-inline-input-item">
+                    <input
+                      ref={workspaceInlineRef}
+                      className="workspace-inline-input"
+                      type="text"
+                      placeholder="스페이스 이름..."
+                      value={workspaceInlineName}
+                      onChange={e => setWorkspaceInlineName(e.currentTarget.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void submitWorkspaceInlineInput();
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault();
+                          closeWorkspaceInlineInput();
+                        }
+                      }}
+                      onBlur={() => {
+                        void submitWorkspaceInlineInput();
+                      }}
+                      disabled={workspaceInlineBusy}
+                    />
+                  </li>
+                )}
                 <li>
                   <button
                     className="workspace-add-button"
-                    onClick={createWorkspace}
+                    onClick={openWorkspaceInlineInput}
                     title="스페이스 추가"
                     aria-label="스페이스 추가">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -569,7 +622,7 @@ const NewTab = () => {
             <Command.Item className="cmdk-item" onSelect={() => runCommand(() => createCollection())}>
               컬렉션 만들기
             </Command.Item>
-            <Command.Item className="cmdk-item" onSelect={() => runCommand(() => createWorkspace())}>
+            <Command.Item className="cmdk-item" onSelect={() => runCommand(() => openWorkspaceInlineInput())}>
               스페이스 만들기
             </Command.Item>
             <Command.Item className="cmdk-item" onSelect={() => runCommand(() => saveWindow())}>
