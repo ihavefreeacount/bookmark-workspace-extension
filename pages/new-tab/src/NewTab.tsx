@@ -609,48 +609,42 @@ const NewTab = () => {
           </div>
         </section>
 
-        <aside className="panel right">
-          {!rightCollapsed ? (
-            <>
-              <div className="panel-section-header">
-                <span className="panel-section-icon" aria-hidden>
-                  🌐
-                </span>
-                <strong>현재 열려있는 탭</strong>
-              </div>
-              <ul className="tab-list">
-                {tabs.map(tab => (
-                  <li
-                    className={tab.active ? 'active' : ''}
-                    key={tab.id}
-                    draggable
-                    onDragStart={e => {
-                      setDragKind('tab');
-                      e.dataTransfer.setData(
-                        DND_TAB_MIME,
-                        JSON.stringify({ title: tab.title, url: tab.url, favIconUrl: tab.favIconUrl }),
-                      );
-                    }}
-                    onDragEnd={() => {
-                      setDropCollectionId(null);
-                      setDropWorkspaceId(null);
-                      setDragKind(null);
-                    }}>
-                    <img className="fav" src={getFaviconCandidates(tab.url)[0]} alt="" />
-                    <div>
-                      <div className="tab-title">{tab.title || tab.url}</div>
-                      <div className="tab-domain">{getDomain(tab.url)}</div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <button className="expand-only" onClick={() => setRightCollapsed(false)} title="열기">
-              ⟪
-            </button>
-          )}
-        </aside>
+        {!rightCollapsed && (
+          <aside className="panel right">
+            <div className="panel-section-header">
+              <span className="panel-section-icon" aria-hidden>
+                🌐
+              </span>
+              <strong>현재 열려있는 탭</strong>
+            </div>
+            <ul className="tab-list">
+              {tabs.map(tab => (
+                <li
+                  className={tab.active ? 'active' : ''}
+                  key={tab.id}
+                  draggable
+                  onDragStart={e => {
+                    setDragKind('tab');
+                    e.dataTransfer.setData(
+                      DND_TAB_MIME,
+                      JSON.stringify({ title: tab.title, url: tab.url, favIconUrl: tab.favIconUrl }),
+                    );
+                  }}
+                  onDragEnd={() => {
+                    setDropCollectionId(null);
+                    setDropWorkspaceId(null);
+                    setDragKind(null);
+                  }}>
+                  <img className="fav" src={getFaviconCandidates(tab.url)[0]} alt="" />
+                  <div>
+                    <div className="tab-title">{tab.title || tab.url}</div>
+                    <div className="tab-domain">{getDomain(tab.url)}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </aside>
+        )}
       </main>
 
       {!!toast && <div className="toast">{toast}</div>}
