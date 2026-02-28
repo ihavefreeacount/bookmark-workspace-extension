@@ -248,7 +248,7 @@ const NewTab = () => {
     }
 
     setCollectionInlineBusy(true);
-    await chrome.bookmarks.create({ parentId: workspaceId, title: name });
+    await chrome.bookmarks.create({ parentId: workspaceId, title: name, index: 0 });
     await refresh();
     closeCollectionInlineInput();
   };
