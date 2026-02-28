@@ -455,73 +455,71 @@ const NewTab = () => {
 
       <main className={`layout ${leftCollapsed ? 'left-collapsed' : ''} ${rightCollapsed ? 'right-collapsed' : ''}`}>
         <aside className="panel left">
-          {!leftCollapsed && (
-            <>
-              <ul className="workspace-list">
-                {workspaces.map(ws => (
-                  <li key={ws.id}>
-                    <button
-                      className={`${workspaceId === ws.id ? 'active' : ''} ${dropWorkspaceId === ws.id ? 'drop-target' : ''}`}
-                      onClick={() => setWorkspaceId(ws.id)}
-                      onDragOver={e => {
-                        if (dragKind !== 'collection') return;
-                        e.preventDefault();
-                        if (dropWorkspaceId !== ws.id) setDropWorkspaceId(ws.id);
-                      }}
-                      onDragLeave={() => {
-                        if (dropWorkspaceId === ws.id) setDropWorkspaceId(null);
-                      }}
-                      onDrop={e => onDropCollectionToWorkspace(e, ws)}>
-                      {ws.title}
-                    </button>
-                  </li>
-                ))}
-                {workspaceInlineOpen && (
-                  <li className="workspace-inline-input-item">
-                    <input
-                      ref={workspaceInlineRef}
-                      className="workspace-inline-input"
-                      type="text"
-                      placeholder="스페이스 이름..."
-                      value={workspaceInlineName}
-                      onChange={e => setWorkspaceInlineName(e.currentTarget.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          void submitWorkspaceInlineInput();
-                        } else if (e.key === 'Escape') {
-                          e.preventDefault();
-                          closeWorkspaceInlineInput();
-                        }
-                      }}
-                      onBlur={() => {
-                        void submitWorkspaceInlineInput();
-                      }}
-                      disabled={workspaceInlineBusy}
-                    />
-                  </li>
-                )}
-                <li>
+          <div className="panel-content">
+            <ul className="workspace-list">
+              {workspaces.map(ws => (
+                <li key={ws.id}>
                   <button
-                    className="workspace-add-button"
-                    onClick={openWorkspaceInlineInput}
-                    title="스페이스 추가"
-                    aria-label="스페이스 추가">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M12 6.5v11M6.5 12h11"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    <span>스페이스 추가</span>
+                    className={`${workspaceId === ws.id ? 'active' : ''} ${dropWorkspaceId === ws.id ? 'drop-target' : ''}`}
+                    onClick={() => setWorkspaceId(ws.id)}
+                    onDragOver={e => {
+                      if (dragKind !== 'collection') return;
+                      e.preventDefault();
+                      if (dropWorkspaceId !== ws.id) setDropWorkspaceId(ws.id);
+                    }}
+                    onDragLeave={() => {
+                      if (dropWorkspaceId === ws.id) setDropWorkspaceId(null);
+                    }}
+                    onDrop={e => onDropCollectionToWorkspace(e, ws)}>
+                    {ws.title}
                   </button>
                 </li>
-              </ul>
-            </>
-          )}
+              ))}
+              {workspaceInlineOpen && (
+                <li className="workspace-inline-input-item">
+                  <input
+                    ref={workspaceInlineRef}
+                    className="workspace-inline-input"
+                    type="text"
+                    placeholder="스페이스 이름..."
+                    value={workspaceInlineName}
+                    onChange={e => setWorkspaceInlineName(e.currentTarget.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void submitWorkspaceInlineInput();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeWorkspaceInlineInput();
+                      }
+                    }}
+                    onBlur={() => {
+                      void submitWorkspaceInlineInput();
+                    }}
+                    disabled={workspaceInlineBusy}
+                  />
+                </li>
+              )}
+              <li>
+                <button
+                  className="workspace-add-button"
+                  onClick={openWorkspaceInlineInput}
+                  title="스페이스 추가"
+                  aria-label="스페이스 추가">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M12 6.5v11M6.5 12h11"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span>스페이스 추가</span>
+                </button>
+              </li>
+            </ul>
+          </div>
         </aside>
 
         <section className="panel center">
@@ -609,8 +607,8 @@ const NewTab = () => {
           </div>
         </section>
 
-        {!rightCollapsed && (
-          <aside className="panel right">
+        <aside className="panel right">
+          <div className="panel-content">
             <div className="panel-section-header">
               <span className="panel-section-icon" aria-hidden>
                 🌐
@@ -643,8 +641,8 @@ const NewTab = () => {
                 </li>
               ))}
             </ul>
-          </aside>
-        )}
+          </div>
+        </aside>
       </main>
 
       {!!toast && <div className="toast">{toast}</div>}

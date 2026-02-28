@@ -168,11 +168,11 @@ button.active {
 }
 
 .layout.right-collapsed {
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 280px 1fr 56px;
 }
 
 .layout.left-collapsed.right-collapsed {
-  grid-template-columns: 56px 1fr;
+  grid-template-columns: 56px 1fr 56px;
 }
 
 .panel {
@@ -212,6 +212,22 @@ button.active {
   border-radius: 0;
   box-shadow: none;
   border-left: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.panel-content {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 140ms ease 130ms,
+    transform 140ms ease 130ms;
+}
+
+.layout.left-collapsed .panel.left .panel-content,
+.layout.right-collapsed .panel.right .panel-content {
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition-delay: 0ms;
 }
 
 .workspace-list,
