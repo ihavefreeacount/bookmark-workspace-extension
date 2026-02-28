@@ -1,3 +1,4 @@
+import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import {
   getCachedFavicon,
@@ -76,6 +77,8 @@ const NewTab = () => {
   const [collectionInlineName, setCollectionInlineName] = useState('');
   const [collectionInlineBusy, setCollectionInlineBusy] = useState(false);
   const collectionInlineRef = useRef<HTMLInputElement | null>(null);
+  const [deleteTargetCollection, setDeleteTargetCollection] = useState<{ id: string; title: string } | null>(null);
+  const [deleteCollectionBusy, setDeleteCollectionBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     const next = await loadTree();
@@ -274,6 +277,16 @@ const NewTab = () => {
       count += 1;
     }
     setToast(`${count}개 링크 저장됨`);
+  };
+
+  const confirmDeleteCollection = async () => {
+    if (!deleteTargetCollection || deleteCollectionBusy) return;
+    setDeleteCollectionBusy(true);
+    await chrome.bookmarks.removeTree(deleteTargetCollection.id);
+    await refresh();
+    setDeleteCollectionBusy(false);
+    setDeleteTargetCollection(null);
+    setToast('컬렉션이 삭제됨');
   };
 
   const openCollection = async (collectionId: string, mode: 'group' | 'new-window') => {
@@ -610,6 +623,17 @@ const NewTab = () => {
                       onSelect={() => void openCollection(col.id, 'new-window')}>
                       새 창 열기
                     </ContextMenu.Item>
+                    <ContextMenu.Separator className="col-context-separator" />
+                    <ContextMenu.Item
+                      className="col-context-item col-context-item-destructive"
+                      onSelect={() =>
+                        setDeleteTargetCollection({
+                          id: col.id,
+                          title: col.title,
+                        })
+                      }>
+                      그룹 삭제
+                    </ContextMenu.Item>
                   </ContextMenu.Content>
                 </ContextMenu.Portal>
               </ContextMenu.Root>
@@ -663,6 +687,32 @@ const NewTab = () => {
       </main>
 
       {!!toast && <div className="toast">{toast}</div>}
+
+      <AlertDialog.Root open={!!deleteTargetCollection} onOpenChange={open => !open && setDeleteTargetCollection(null)}>
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="confirm-overlay" />
+          <AlertDialog.Content className="confirm-dialog">
+            <AlertDialog.Title className="confirm-title">그룹을 삭제할까요?</AlertDialog.Title>
+            <AlertDialog.Description className="confirm-desc">
+              {(deleteTargetCollection?.title || '선택된 그룹') +
+                ' 및 하위 북마크가 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.'}
+            </AlertDialog.Description>
+            <div className="confirm-actions">
+              <AlertDialog.Cancel asChild>
+                <button className="confirm-btn">취소</button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action asChild>
+                <button
+                  className="confirm-btn destructive"
+                  onClick={() => void confirmDeleteCollection()}
+                  disabled={deleteCollectionBusy}>
+                  삭제
+                </button>
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
 
       <Command.Dialog
         className="cmdk-dialog"
