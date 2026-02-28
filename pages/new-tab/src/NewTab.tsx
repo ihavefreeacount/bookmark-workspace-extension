@@ -407,9 +407,6 @@ const NewTab = () => {
         <aside className="panel left">
           {!leftCollapsed && (
             <>
-              <button className="full" onClick={createWorkspace}>
-                + 스페이스
-              </button>
               <ul className="workspace-list">
                 {workspaces.map(ws => (
                   <li key={ws.id}>
@@ -429,6 +426,24 @@ const NewTab = () => {
                     </button>
                   </li>
                 ))}
+                <li>
+                  <button
+                    className="workspace-add-button"
+                    onClick={createWorkspace}
+                    title="스페이스 추가"
+                    aria-label="스페이스 추가">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M12 6.5v11M6.5 12h11"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <span>스페이스 추가</span>
+                  </button>
+                </li>
               </ul>
             </>
           )}
