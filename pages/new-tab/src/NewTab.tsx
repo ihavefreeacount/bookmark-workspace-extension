@@ -1,4 +1,4 @@
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import * as ContextMenu from '@radix-ui/react-context-menu';
 import {
   getCachedFavicon,
   getDomain,
@@ -553,82 +553,66 @@ const NewTab = () => {
               </article>
             )}
             {collections.map(col => (
-              <article
-                key={col.id}
-                className={`col-card ${dropCollectionId === col.id ? 'drop-target' : ''}`}
-                draggable
-                onDragStart={e => onDragCollectionStart(e, col)}
-                onDragEnd={() => {
-                  setDropWorkspaceId(null);
-                  setDropCollectionId(null);
-                  setDragKind(null);
-                }}
-                onDragOver={e => {
-                  if (dragKind !== 'tab') return;
-                  e.preventDefault();
-                  setDropCollectionId(col.id);
-                }}
-                onDragLeave={() => setDropCollectionId(null)}
-                onDrop={e => onDropTabToCollection(e, col.id)}>
-                <div className="col-head">
-                  <h3 className="col-title">{col.title}</h3>
-                </div>
-                <ul className="link-list">
-                  {col.links.slice(0, 8).map(link => {
-                    const icon = getFaviconSrc(link);
-                    return (
-                      <li key={link.id}>
-                        <button className="link-row" onClick={() => openLink(link.url)} title={link.url || ''}>
-                          <img
-                            className="fav"
-                            src={icon}
-                            alt=""
-                            onError={() => onFaviconError(link)}
-                            onLoad={e => rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)}
-                          />
-                          <span className="link-main">
-                            <span className="link-title">{link.title || link.url}</span>
-                            <span className="link-domain">{getDomain(link.url)}</span>
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-
-                <div className="col-actions">
-                  <DropdownMenu.Root>
-                    <DropdownMenu.Trigger asChild>
-                      <button
-                        className="col-actions-trigger"
-                        type="button"
-                        title="컬렉션 작업"
-                        aria-label="컬렉션 작업"
-                        onPointerDown={e => e.stopPropagation()}>
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <circle cx="9" cy="12" r="1.2" />
-                          <circle cx="12" cy="12" r="1.2" />
-                          <circle cx="15" cy="12" r="1.2" />
-                        </svg>
-                      </button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Portal>
-                      <DropdownMenu.Content className="col-actions-menu" align="end" sideOffset={6}>
-                        <DropdownMenu.Item
-                          className="col-actions-item"
-                          onSelect={() => void openCollection(col.id, 'group')}>
-                          그룹 열기
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item
-                          className="col-actions-item"
-                          onSelect={() => void openCollection(col.id, 'new-window')}>
-                          새 창 열기
-                        </DropdownMenu.Item>
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Portal>
-                  </DropdownMenu.Root>
-                </div>
-              </article>
+              <ContextMenu.Root key={col.id}>
+                <ContextMenu.Trigger asChild>
+                  <article
+                    className={`col-card ${dropCollectionId === col.id ? 'drop-target' : ''}`}
+                    draggable
+                    onDragStart={e => onDragCollectionStart(e, col)}
+                    onDragEnd={() => {
+                      setDropWorkspaceId(null);
+                      setDropCollectionId(null);
+                      setDragKind(null);
+                    }}
+                    onDragOver={e => {
+                      if (dragKind !== 'tab') return;
+                      e.preventDefault();
+                      setDropCollectionId(col.id);
+                    }}
+                    onDragLeave={() => setDropCollectionId(null)}
+                    onDrop={e => onDropTabToCollection(e, col.id)}>
+                    <div className="col-head">
+                      <h3 className="col-title">{col.title}</h3>
+                    </div>
+                    <ul className="link-list">
+                      {col.links.slice(0, 8).map(link => {
+                        const icon = getFaviconSrc(link);
+                        return (
+                          <li key={link.id}>
+                            <button className="link-row" onClick={() => openLink(link.url)} title={link.url || ''}>
+                              <img
+                                className="fav"
+                                src={icon}
+                                alt=""
+                                onError={() => onFaviconError(link)}
+                                onLoad={e => rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)}
+                              />
+                              <span className="link-main">
+                                <span className="link-title">{link.title || link.url}</span>
+                                <span className="link-domain">{getDomain(link.url)}</span>
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </article>
+                </ContextMenu.Trigger>
+                <ContextMenu.Portal>
+                  <ContextMenu.Content className="col-context-menu" alignOffset={-4}>
+                    <ContextMenu.Item
+                      className="col-context-item"
+                      onSelect={() => void openCollection(col.id, 'group')}>
+                      그룹 열기
+                    </ContextMenu.Item>
+                    <ContextMenu.Item
+                      className="col-context-item"
+                      onSelect={() => void openCollection(col.id, 'new-window')}>
+                      새 창 열기
+                    </ContextMenu.Item>
+                  </ContextMenu.Content>
+                </ContextMenu.Portal>
+              </ContextMenu.Root>
             ))}
           </div>
         </section>

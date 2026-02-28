@@ -440,37 +440,7 @@ button.active {
   text-overflow: ellipsis;
 }
 
-.col-actions {
-  margin-top: 6px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.col-actions-trigger {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  box-shadow: none;
-  color: #5b6472;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.col-actions-trigger svg {
-  width: 16px;
-  height: 16px;
-}
-
-.col-actions-trigger:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #1f2937;
-}
-
-.col-actions-menu {
+.col-context-menu {
   min-width: 132px;
   background: #fff;
   border-radius: 10px;
@@ -480,7 +450,7 @@ button.active {
   z-index: 40;
 }
 
-.col-actions-item {
+.col-context-item {
   font-size: 12px;
   color: #374151;
   border-radius: 7px;
@@ -489,7 +459,7 @@ button.active {
   cursor: pointer;
 }
 
-.col-actions-item[data-highlighted] {
+.col-context-item[data-highlighted] {
   background: #eef2f7;
   color: #111827;
 }
