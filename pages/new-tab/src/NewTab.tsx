@@ -335,8 +335,8 @@ const NewTab = () => {
           <button className="icon search-trigger" onClick={() => setCommandOpen(true)} title="검색 / 커맨드 (⌘K)">
             ⌕
           </button>
-          <button className="secondary" onClick={createCollection}>
-            + 컬렉션
+          <button className="icon" onClick={createCollection} title="컬렉션 추가" aria-label="컬렉션 추가">
+            ⊞
           </button>
           <button className="primary" onClick={saveWindow}>
             창 저장
