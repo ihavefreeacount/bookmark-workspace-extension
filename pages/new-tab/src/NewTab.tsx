@@ -422,10 +422,13 @@ const NewTab = () => {
           </button>
           <button className="tool-btn" onClick={openCollectionInlineInput} title="컬렉션 추가" aria-label="컬렉션 추가">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="4" y="4" width="6" height="6" rx="1.5" />
-              <rect x="14" y="4" width="6" height="6" rx="1.5" />
-              <rect x="4" y="14" width="6" height="6" rx="1.5" />
-              <rect x="14" y="14" width="6" height="6" rx="1.5" />
+              <path
+                d="M12 6.5v11M6.5 12h11"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
             </svg>
           </button>
           <button
