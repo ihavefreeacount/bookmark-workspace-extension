@@ -393,13 +393,10 @@ const NewTab = () => {
     }
 
     setEditingBookmarkBusy(true);
-    await chrome.bookmarks.create({
-      parentId: editingBookmark.parentId,
-      index: editingBookmark.index,
+    await chrome.bookmarks.update(editingBookmark.id, {
       title: nextTitle || nextUrl,
       url: nextUrl,
     });
-    await chrome.bookmarks.remove(editingBookmark.id);
     await refresh();
     cancelBookmarkEdit();
     setToast('북마크 수정됨');
