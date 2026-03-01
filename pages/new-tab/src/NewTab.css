@@ -173,12 +173,18 @@ button.active {
   background: transparent;
   box-shadow: none;
   padding: 8px;
+  position: sticky;
+  top: 64px;
+  max-height: calc(100vh - 82px);
 }
 
 .panel.right {
   background: transparent;
   border-radius: 0;
   box-shadow: none;
+  position: sticky;
+  top: 64px;
+  max-height: calc(100vh - 82px);
 }
 
 .panel-content {
