@@ -614,13 +614,13 @@ const NewTab = () => {
               {workspaces.map(ws => (
                 <ContextMenu.Root key={ws.id}>
                   <ContextMenu.Trigger asChild>
-                    <li
-                      onMouseEnter={e => scheduleWorkspaceFlyoutOpen(ws, e.currentTarget)}
-                      onMouseLeave={scheduleWorkspaceFlyoutClose}>
+                    <li>
                       <button
                         className={`${workspaceId === ws.id ? 'active' : ''} ${
                           dropWorkspaceId === ws.id ? 'drop-target' : ''
                         }`}
+                        onMouseEnter={e => scheduleWorkspaceFlyoutOpen(ws, e.currentTarget)}
+                        onMouseLeave={scheduleWorkspaceFlyoutClose}
                         onClick={() => setWorkspaceId(ws.id)}
                         onDragOver={e => {
                           if (dragKind !== 'collection') return;
