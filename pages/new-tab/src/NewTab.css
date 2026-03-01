@@ -321,6 +321,9 @@ button.active {
     0 0 0 2px rgba(0, 122, 255, 0.2),
     var(--shadow-1);
   animation: card-pop-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 .col-inline-input {

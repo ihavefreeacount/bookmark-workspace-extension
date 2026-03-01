@@ -629,10 +629,10 @@ const NewTab = () => {
                   key="inline-collection-input"
                   className="col-card inline-input-card"
                   layout
-                  initial={{ opacity: 0, scale: 0.97, y: -8 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.94, y: -14 }}
-                  transition={{ duration: 0.24, ease: 'easeOut' }}>
+                  initial={{ scale: 0.985, y: -8 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0.985, y: -8 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}>
                   <div className="col-head">
                     <input
                       ref={collectionInlineRef}
