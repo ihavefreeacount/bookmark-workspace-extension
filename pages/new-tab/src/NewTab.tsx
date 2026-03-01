@@ -105,6 +105,10 @@ const NewTab = () => {
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [activeContext, setActiveContext] = useState<ActiveContext>(null);
+  const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(null);
+  const [editingWorkspaceName, setEditingWorkspaceName] = useState('');
+  const [editingWorkspaceBusy, setEditingWorkspaceBusy] = useState(false);
+  const editingWorkspaceRef = useRef<HTMLInputElement | null>(null);
   const [editingBookmark, setEditingBookmark] = useState<EditingBookmark | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [editingUrl, setEditingUrl] = useState('');
@@ -182,6 +186,14 @@ const NewTab = () => {
       editingTitleRef.current?.select();
     });
   }, [editingBookmark]);
+
+  useEffect(() => {
+    if (!editingWorkspaceId) return;
+    requestAnimationFrame(() => {
+      editingWorkspaceRef.current?.focus();
+      editingWorkspaceRef.current?.select();
+    });
+  }, [editingWorkspaceId]);
 
   useEffect(
     () => () => {
@@ -458,6 +470,38 @@ const NewTab = () => {
     }, 200);
   };
 
+  const startWorkspaceEdit = (workspace: BookmarkNode) => {
+    setEditingWorkspaceId(workspace.id);
+    setEditingWorkspaceName(workspace.title || '');
+  };
+
+  const cancelWorkspaceEdit = () => {
+    setEditingWorkspaceId(null);
+    setEditingWorkspaceName('');
+    setEditingWorkspaceBusy(false);
+  };
+
+  const saveWorkspaceEdit = async () => {
+    if (!editingWorkspaceId || editingWorkspaceBusy) return;
+    const nextName = editingWorkspaceName.trim();
+    if (!nextName) {
+      cancelWorkspaceEdit();
+      return;
+    }
+
+    const current = workspaces.find(ws => ws.id === editingWorkspaceId)?.title || '';
+    if (nextName === current) {
+      cancelWorkspaceEdit();
+      return;
+    }
+
+    setEditingWorkspaceBusy(true);
+    await chrome.bookmarks.update(editingWorkspaceId, { title: nextName });
+    await refresh();
+    cancelWorkspaceEdit();
+    setToast('스페이스 이름 수정됨');
+  };
+
   const onDragCollectionStart = (e: React.DragEvent, collection: CollectionSummary) => {
     setDragKind('collection');
     e.dataTransfer.clearData();
@@ -616,30 +660,57 @@ const NewTab = () => {
                 <ContextMenu.Root key={ws.id}>
                   <ContextMenu.Trigger asChild>
                     <li>
-                      <button
-                        className={`${workspaceId === ws.id ? 'active' : ''} ${
-                          dropWorkspaceId === ws.id ? 'drop-target' : ''
-                        }`}
-                        onMouseEnter={e => scheduleWorkspaceFlyoutOpen(ws, e.currentTarget)}
-                        onMouseLeave={scheduleWorkspaceFlyoutClose}
-                        onClick={() => setWorkspaceId(ws.id)}
-                        onDragOver={e => {
-                          if (dragKind !== 'collection') return;
-                          e.preventDefault();
-                          if (dropWorkspaceId !== ws.id) setDropWorkspaceId(ws.id);
-                        }}
-                        onDragLeave={() => {
-                          if (dropWorkspaceId === ws.id) setDropWorkspaceId(null);
-                        }}
-                        onDrop={e => onDropCollectionToWorkspace(e, ws)}>
-                        {ws.title}
-                      </button>
+                      {editingWorkspaceId === ws.id ? (
+                        <div className="workspace-item is-editing">
+                          <input
+                            ref={editingWorkspaceRef}
+                            className="workspace-edit-input"
+                            value={editingWorkspaceName}
+                            onChange={e => setEditingWorkspaceName(e.currentTarget.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                void saveWorkspaceEdit();
+                              } else if (e.key === 'Escape') {
+                                e.preventDefault();
+                                cancelWorkspaceEdit();
+                              }
+                            }}
+                            onBlur={() => {
+                              void saveWorkspaceEdit();
+                            }}
+                            disabled={editingWorkspaceBusy}
+                          />
+                        </div>
+                      ) : (
+                        <button
+                          className={`${workspaceId === ws.id ? 'active' : ''} ${
+                            dropWorkspaceId === ws.id ? 'drop-target' : ''
+                          }`}
+                          onMouseEnter={e => scheduleWorkspaceFlyoutOpen(ws, e.currentTarget)}
+                          onMouseLeave={scheduleWorkspaceFlyoutClose}
+                          onClick={() => setWorkspaceId(ws.id)}
+                          onDragOver={e => {
+                            if (dragKind !== 'collection') return;
+                            e.preventDefault();
+                            if (dropWorkspaceId !== ws.id) setDropWorkspaceId(ws.id);
+                          }}
+                          onDragLeave={() => {
+                            if (dropWorkspaceId === ws.id) setDropWorkspaceId(null);
+                          }}
+                          onDrop={e => onDropCollectionToWorkspace(e, ws)}>
+                          {ws.title}
+                        </button>
+                      )}
                     </li>
                   </ContextMenu.Trigger>
                   <ContextMenu.Portal>
                     <ContextMenu.Content className="col-context-menu" align="end" sideOffset={4}>
                       <div className="col-context-label">스페이스 메뉴 · {ws.title}</div>
                       <ContextMenu.Separator className="col-context-separator" />
+                      <ContextMenu.Item className="col-context-item" onSelect={() => startWorkspaceEdit(ws)}>
+                        수정
+                      </ContextMenu.Item>
                       <ContextMenu.Item
                         className="col-context-item col-context-item-destructive"
                         onSelect={() =>
