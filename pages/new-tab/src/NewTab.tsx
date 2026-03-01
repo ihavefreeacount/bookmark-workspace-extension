@@ -459,6 +459,7 @@ const NewTab = () => {
   };
 
   const scheduleWorkspaceFlyoutOpen = (ws: BookmarkNode, anchorEl: HTMLElement) => {
+    if (draggingWorkspaceId) return;
     if (closeFlyoutTimerRef.current) {
       window.clearTimeout(closeFlyoutTimerRef.current);
       closeFlyoutTimerRef.current = null;
@@ -704,7 +705,18 @@ const NewTab = () => {
                     boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
                   }}
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                  onDragStart={() => setDraggingWorkspaceId(ws.id)}
+                  onDragStart={() => {
+                    setDraggingWorkspaceId(ws.id);
+                    setWorkspaceFlyout(null);
+                    if (openFlyoutTimerRef.current) {
+                      window.clearTimeout(openFlyoutTimerRef.current);
+                      openFlyoutTimerRef.current = null;
+                    }
+                    if (closeFlyoutTimerRef.current) {
+                      window.clearTimeout(closeFlyoutTimerRef.current);
+                      closeFlyoutTimerRef.current = null;
+                    }
+                  }}
                   onDragEnd={() => {
                     setDraggingWorkspaceId(null);
                     void persistWorkspaceOrder();
