@@ -623,7 +623,7 @@ const NewTab = () => {
 
         <section className="panel center">
           <div className="grid">
-            <AnimatePresence initial={false}>
+            <AnimatePresence initial={false} mode="popLayout">
               {collectionInlineOpen && (
                 <motion.article
                   key="inline-collection-input"
@@ -631,8 +631,8 @@ const NewTab = () => {
                   layout
                   initial={{ opacity: 0, scale: 0.97, y: -8 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.97, y: -8 }}
-                  transition={{ duration: 0.18 }}>
+                  exit={{ opacity: 0, scale: 0.94, y: -14 }}
+                  transition={{ duration: 0.24, ease: 'easeOut' }}>
                   <div className="col-head">
                     <input
                       ref={collectionInlineRef}
