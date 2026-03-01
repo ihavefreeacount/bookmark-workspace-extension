@@ -1046,14 +1046,11 @@ const NewTab = () => {
               onMouseLeave={scheduleWorkspaceFlyoutClose}>
               <div className="workspace-flyout-title">포함된 컬렉션</div>
               <ul className="workspace-flyout-list">
-                {workspaceFlyout.collections.slice(0, 5).map((name, idx) => (
+                {workspaceFlyout.collections.map((name, idx) => (
                   <li key={`${workspaceFlyout.workspaceId}-${idx}-${name}`}>
                     <span>{name}</span>
                   </li>
                 ))}
-                {workspaceFlyout.collections.length > 5 && (
-                  <li className="workspace-flyout-more">+ {workspaceFlyout.collections.length - 5}개 더보기…</li>
-                )}
               </ul>
             </motion.div>
           )}
