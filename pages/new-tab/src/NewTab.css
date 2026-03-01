@@ -262,6 +262,14 @@ button.active {
   background: #f1f1f5;
 }
 
+.panel.left.workspace-dragging .workspace-list button {
+  transition: none;
+}
+
+.panel.left.workspace-dragging .workspace-list button:not(.active):hover {
+  background: transparent;
+}
+
 .workspace-list button.drop-target {
   background: #eff3fb;
   box-shadow:

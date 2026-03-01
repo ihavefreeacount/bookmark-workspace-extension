@@ -686,7 +686,7 @@ const NewTab = () => {
       </header>
 
       <main className={`layout ${leftCollapsed ? 'left-collapsed' : ''} ${rightCollapsed ? 'right-collapsed' : ''}`}>
-        <aside className="panel left">
+        <aside className={`panel left ${draggingWorkspaceId ? 'workspace-dragging' : ''}`}>
           <div className="panel-content">
             <Reorder.Group
               axis="y"
