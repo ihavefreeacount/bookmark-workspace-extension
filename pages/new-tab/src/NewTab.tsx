@@ -34,6 +34,8 @@ type DeleteTarget =
   | { kind: 'collection'; id: string; title: string }
   | { kind: 'bookmark'; id: string; title: string; url?: string };
 
+type ActiveContext = { kind: 'collection'; id: string } | { kind: 'bookmark'; id: string } | null;
+
 const ROOT_FOLDER = 'Bookmark Workspace';
 const DND_TAB_MIME = 'application/x-bookmark-workspace-tab';
 const DND_COLLECTION_MIME = 'application/x-bookmark-workspace-collection';
@@ -83,6 +85,7 @@ const NewTab = () => {
   const collectionInlineRef = useRef<HTMLInputElement | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [activeContext, setActiveContext] = useState<ActiveContext>(null);
 
   const refresh = useCallback(async () => {
     const next = await loadTree();
@@ -581,10 +584,22 @@ const NewTab = () => {
               </article>
             )}
             {collections.map(col => (
-              <ContextMenu.Root key={col.id}>
+              <ContextMenu.Root
+                key={col.id}
+                onOpenChange={open =>
+                  setActiveContext(prev =>
+                    open
+                      ? { kind: 'collection', id: col.id }
+                      : prev?.kind === 'collection' && prev.id === col.id
+                        ? null
+                        : prev,
+                  )
+                }>
                 <ContextMenu.Trigger asChild>
                   <article
-                    className={`col-card ${dropCollectionId === col.id ? 'drop-target' : ''}`}
+                    className={`col-card ${dropCollectionId === col.id ? 'drop-target' : ''} ${
+                      activeContext?.kind === 'collection' && activeContext.id === col.id ? 'context-active' : ''
+                    }`}
                     draggable
                     onDragStart={e => onDragCollectionStart(e, col)}
                     onDragEnd={() => {
@@ -606,11 +621,25 @@ const NewTab = () => {
                       {col.links.slice(0, 8).map(link => {
                         const icon = getFaviconSrc(link);
                         return (
-                          <ContextMenu.Root key={link.id}>
+                          <ContextMenu.Root
+                            key={link.id}
+                            onOpenChange={open =>
+                              setActiveContext(prev =>
+                                open
+                                  ? { kind: 'bookmark', id: link.id }
+                                  : prev?.kind === 'bookmark' && prev.id === link.id
+                                    ? null
+                                    : prev,
+                              )
+                            }>
                             <ContextMenu.Trigger asChild>
                               <li onContextMenu={e => e.stopPropagation()}>
                                 <button
-                                  className="link-row"
+                                  className={`link-row ${
+                                    activeContext?.kind === 'bookmark' && activeContext.id === link.id
+                                      ? 'context-active'
+                                      : ''
+                                  }`}
                                   onClick={() => openLink(link.url)}
                                   onContextMenu={e => e.stopPropagation()}
                                   title={link.url || ''}>
@@ -630,6 +659,10 @@ const NewTab = () => {
                             </ContextMenu.Trigger>
                             <ContextMenu.Portal>
                               <ContextMenu.Content className="col-context-menu" align="end" sideOffset={4}>
+                                <div className="col-context-label">
+                                  북마크 메뉴 · {link.title || getDomain(link.url) || 'Untitled'}
+                                </div>
+                                <ContextMenu.Separator className="col-context-separator" />
                                 <ContextMenu.Item className="col-context-item" onSelect={() => void openLink(link.url)}>
                                   새 탭에서 열기
                                 </ContextMenu.Item>
@@ -659,6 +692,8 @@ const NewTab = () => {
                 </ContextMenu.Trigger>
                 <ContextMenu.Portal>
                   <ContextMenu.Content className="col-context-menu" alignOffset={-4}>
+                    <div className="col-context-label">그룹 메뉴 · {col.title}</div>
+                    <ContextMenu.Separator className="col-context-separator" />
                     <ContextMenu.Item
                       className="col-context-item"
                       onSelect={() => void openCollection(col.id, 'group')}>

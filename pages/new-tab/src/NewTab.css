@@ -371,6 +371,12 @@ button.active {
     var(--shadow-2);
 }
 
+.col-card.context-active {
+  box-shadow:
+    0 0 0 2px rgba(0, 122, 255, 0.25),
+    var(--shadow-2);
+}
+
 .link-row,
 .tab-list li {
   width: 100%;
@@ -408,6 +414,10 @@ button.active {
 .tab-list li:hover {
   background: #f6f6f9;
   box-shadow: none;
+}
+
+.link-row.context-active {
+  background: #eef4ff;
 }
 
 .fav {
@@ -462,6 +472,16 @@ button.active {
 .col-context-item[data-highlighted] {
   background: #eef2f7;
   color: #111827;
+}
+
+.col-context-label {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 600;
+  padding: 6px 8px 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .col-context-separator {
