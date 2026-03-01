@@ -30,6 +30,10 @@ type CommandLink = {
   collection: string;
 };
 
+type DeleteTarget =
+  | { kind: 'collection'; id: string; title: string }
+  | { kind: 'bookmark'; id: string; title: string; url?: string };
+
 const ROOT_FOLDER = 'Bookmark Workspace';
 const DND_TAB_MIME = 'application/x-bookmark-workspace-tab';
 const DND_COLLECTION_MIME = 'application/x-bookmark-workspace-collection';
@@ -77,8 +81,8 @@ const NewTab = () => {
   const [collectionInlineName, setCollectionInlineName] = useState('');
   const [collectionInlineBusy, setCollectionInlineBusy] = useState(false);
   const collectionInlineRef = useRef<HTMLInputElement | null>(null);
-  const [deleteTargetCollection, setDeleteTargetCollection] = useState<{ id: string; title: string } | null>(null);
-  const [deleteCollectionBusy, setDeleteCollectionBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     const next = await loadTree();
@@ -279,14 +283,19 @@ const NewTab = () => {
     setToast(`${count}개 링크 저장됨`);
   };
 
-  const confirmDeleteCollection = async () => {
-    if (!deleteTargetCollection || deleteCollectionBusy) return;
-    setDeleteCollectionBusy(true);
-    await chrome.bookmarks.removeTree(deleteTargetCollection.id);
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleteBusy) return;
+    setDeleteBusy(true);
+    if (deleteTarget.kind === 'collection') {
+      await chrome.bookmarks.removeTree(deleteTarget.id);
+      setToast('컬렉션이 삭제됨');
+    } else {
+      await chrome.bookmarks.remove(deleteTarget.id);
+      setToast('북마크가 삭제됨');
+    }
     await refresh();
-    setDeleteCollectionBusy(false);
-    setDeleteTargetCollection(null);
-    setToast('컬렉션이 삭제됨');
+    setDeleteBusy(false);
+    setDeleteTarget(null);
   };
 
   const openCollection = async (collectionId: string, mode: 'group' | 'new-window') => {
@@ -315,6 +324,12 @@ const NewTab = () => {
   const openLink = async (url?: string) => {
     if (!url) return;
     await chrome.tabs.create({ url, active: true });
+  };
+
+  const copyLink = async (url?: string) => {
+    if (!url) return;
+    await navigator.clipboard.writeText(url);
+    setToast('링크 복사됨');
   };
 
   const onDragCollectionStart = (e: React.DragEvent, collection: CollectionSummary) => {
@@ -591,21 +606,52 @@ const NewTab = () => {
                       {col.links.slice(0, 8).map(link => {
                         const icon = getFaviconSrc(link);
                         return (
-                          <li key={link.id}>
-                            <button className="link-row" onClick={() => openLink(link.url)} title={link.url || ''}>
-                              <img
-                                className="fav"
-                                src={icon}
-                                alt=""
-                                onError={() => onFaviconError(link)}
-                                onLoad={e => rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)}
-                              />
-                              <span className="link-main">
-                                <span className="link-title">{link.title || link.url}</span>
-                                <span className="link-domain">{getDomain(link.url)}</span>
-                              </span>
-                            </button>
-                          </li>
+                          <ContextMenu.Root key={link.id}>
+                            <ContextMenu.Trigger asChild>
+                              <li onContextMenu={e => e.stopPropagation()}>
+                                <button
+                                  className="link-row"
+                                  onClick={() => openLink(link.url)}
+                                  onContextMenu={e => e.stopPropagation()}
+                                  title={link.url || ''}>
+                                  <img
+                                    className="fav"
+                                    src={icon}
+                                    alt=""
+                                    onError={() => onFaviconError(link)}
+                                    onLoad={e => rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)}
+                                  />
+                                  <span className="link-main">
+                                    <span className="link-title">{link.title || link.url}</span>
+                                    <span className="link-domain">{getDomain(link.url)}</span>
+                                  </span>
+                                </button>
+                              </li>
+                            </ContextMenu.Trigger>
+                            <ContextMenu.Portal>
+                              <ContextMenu.Content className="col-context-menu" align="end" sideOffset={4}>
+                                <ContextMenu.Item className="col-context-item" onSelect={() => void openLink(link.url)}>
+                                  새 탭에서 열기
+                                </ContextMenu.Item>
+                                <ContextMenu.Item className="col-context-item" onSelect={() => void copyLink(link.url)}>
+                                  링크 복사
+                                </ContextMenu.Item>
+                                <ContextMenu.Separator className="col-context-separator" />
+                                <ContextMenu.Item
+                                  className="col-context-item col-context-item-destructive"
+                                  onSelect={() =>
+                                    setDeleteTarget({
+                                      kind: 'bookmark',
+                                      id: link.id,
+                                      title: link.title || link.url || 'Untitled',
+                                      url: link.url,
+                                    })
+                                  }>
+                                  북마크 삭제
+                                </ContextMenu.Item>
+                              </ContextMenu.Content>
+                            </ContextMenu.Portal>
+                          </ContextMenu.Root>
                         );
                       })}
                     </ul>
@@ -627,7 +673,8 @@ const NewTab = () => {
                     <ContextMenu.Item
                       className="col-context-item col-context-item-destructive"
                       onSelect={() =>
-                        setDeleteTargetCollection({
+                        setDeleteTarget({
+                          kind: 'collection',
                           id: col.id,
                           title: col.title,
                         })
@@ -688,24 +735,24 @@ const NewTab = () => {
 
       {!!toast && <div className="toast">{toast}</div>}
 
-      <AlertDialog.Root open={!!deleteTargetCollection} onOpenChange={open => !open && setDeleteTargetCollection(null)}>
+      <AlertDialog.Root open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
         <AlertDialog.Portal>
           <AlertDialog.Overlay className="confirm-overlay" />
           <AlertDialog.Content className="confirm-dialog">
-            <AlertDialog.Title className="confirm-title">그룹을 삭제할까요?</AlertDialog.Title>
+            <AlertDialog.Title className="confirm-title">
+              {deleteTarget?.kind === 'bookmark' ? '북마크를 삭제할까요?' : '그룹을 삭제할까요?'}
+            </AlertDialog.Title>
             <AlertDialog.Description className="confirm-desc">
-              {(deleteTargetCollection?.title || '선택된 그룹') +
-                ' 및 하위 북마크가 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.'}
+              {deleteTarget?.kind === 'bookmark'
+                ? `${deleteTarget.title} 북마크가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
+                : `${deleteTarget?.title || '선택된 그룹'} 및 하위 북마크가 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`}
             </AlertDialog.Description>
             <div className="confirm-actions">
               <AlertDialog.Cancel asChild>
                 <button className="confirm-btn">취소</button>
               </AlertDialog.Cancel>
               <AlertDialog.Action asChild>
-                <button
-                  className="confirm-btn destructive"
-                  onClick={() => void confirmDeleteCollection()}
-                  disabled={deleteCollectionBusy}>
+                <button className="confirm-btn destructive" onClick={() => void confirmDelete()} disabled={deleteBusy}>
                   삭제
                 </button>
               </AlertDialog.Action>
