@@ -699,10 +699,10 @@ const NewTab = () => {
                   value={ws.id}
                   className={`workspace-reorder-item ${draggingWorkspaceId === ws.id ? 'dragging' : ''}`}
                   whileDrag={{
-                    scale: 1.02,
+                    scale: 1,
                     background: 'rgba(255, 255, 255, 0.8)',
                     backdropFilter: 'blur(10px)',
-                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
                   }}
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   onDragStart={() => {
