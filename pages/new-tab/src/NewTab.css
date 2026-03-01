@@ -335,23 +335,11 @@ button.active {
 .workspace-flyout-list li {
   display: flex;
   align-items: center;
-  gap: 6px;
   padding: 6px 8px;
   border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
   color: #1c1c1e;
-}
-
-.workspace-flyout-list li:hover {
-  background: rgba(0, 0, 0, 0.04);
-}
-
-.workspace-flyout-icon {
-  width: 14px;
-  height: 14px;
-  color: #a1a1aa;
-  flex: 0 0 auto;
 }
 
 .workspace-flyout-more {

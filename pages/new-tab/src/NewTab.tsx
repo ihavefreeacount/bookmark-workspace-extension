@@ -1048,25 +1048,6 @@ const NewTab = () => {
               <ul className="workspace-flyout-list">
                 {workspaceFlyout.collections.slice(0, 5).map((name, idx) => (
                   <li key={`${workspaceFlyout.workspaceId}-${idx}-${name}`}>
-                    <svg className="workspace-flyout-icon" viewBox="0 0 24 24" aria-hidden="true">
-                      <rect
-                        x="4.5"
-                        y="4.5"
-                        width="15"
-                        height="15"
-                        rx="2.4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                      />
-                      <path
-                        d="M12 8v8M8 12h8"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                      />
-                    </svg>
                     <span>{name}</span>
                   </li>
                 ))}
