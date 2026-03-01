@@ -593,7 +593,7 @@ const NewTab = () => {
                 </motion.article>
               )}
             </AnimatePresence>
-            <AnimatePresence initial={false}>
+            <AnimatePresence key={`collections-${workspaceId || 'all'}`} initial={false}>
               {collections.map(col => (
                 <ContextMenu.Root
                   key={col.id}
