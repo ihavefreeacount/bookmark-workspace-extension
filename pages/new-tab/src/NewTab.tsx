@@ -37,6 +37,14 @@ type DeleteTarget =
 
 type ActiveContext = { kind: 'collection'; id: string } | { kind: 'bookmark'; id: string } | null;
 
+type EditingBookmark = {
+  id: string;
+  parentId: string;
+  index: number;
+  originalTitle: string;
+  originalUrl: string;
+};
+
 const ROOT_FOLDER = 'Bookmark Workspace';
 const DND_TAB_MIME = 'application/x-bookmark-workspace-tab';
 const DND_COLLECTION_MIME = 'application/x-bookmark-workspace-collection';
@@ -87,6 +95,12 @@ const NewTab = () => {
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [activeContext, setActiveContext] = useState<ActiveContext>(null);
+  const [editingBookmark, setEditingBookmark] = useState<EditingBookmark | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [editingUrl, setEditingUrl] = useState('');
+  const [editingBookmarkBusy, setEditingBookmarkBusy] = useState(false);
+  const editingTitleRef = useRef<HTMLInputElement | null>(null);
+  const editingUrlRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = useCallback(async () => {
     const next = await loadTree();
@@ -147,6 +161,14 @@ const NewTab = () => {
     if (!collectionInlineOpen) return;
     collectionInlineRef.current?.focus();
   }, [collectionInlineOpen]);
+
+  useEffect(() => {
+    if (!editingBookmark) return;
+    requestAnimationFrame(() => {
+      editingTitleRef.current?.focus();
+      editingTitleRef.current?.select();
+    });
+  }, [editingBookmark]);
 
   useEffect(() => {
     window.localStorage.setItem(LS_SELECTED_SPACE, workspaceId);
@@ -334,6 +356,53 @@ const NewTab = () => {
     if (!url) return;
     await navigator.clipboard.writeText(url);
     setToast('링크 복사됨');
+  };
+
+  const startBookmarkEdit = (link: BookmarkNode, parentId: string, index: number) => {
+    if (!link.url) return;
+    setEditingBookmark({
+      id: link.id,
+      parentId,
+      index,
+      originalTitle: link.title || '',
+      originalUrl: link.url,
+    });
+    setEditingTitle(link.title || '');
+    setEditingUrl(link.url);
+  };
+
+  const cancelBookmarkEdit = () => {
+    setEditingBookmark(null);
+    setEditingTitle('');
+    setEditingUrl('');
+    setEditingBookmarkBusy(false);
+  };
+
+  const saveBookmarkEdit = async () => {
+    if (!editingBookmark || editingBookmarkBusy) return;
+    const nextTitle = editingTitle.trim();
+    const nextUrl = editingUrl.trim();
+    if (!nextUrl) {
+      cancelBookmarkEdit();
+      return;
+    }
+
+    if (nextTitle === editingBookmark.originalTitle && nextUrl === editingBookmark.originalUrl) {
+      cancelBookmarkEdit();
+      return;
+    }
+
+    setEditingBookmarkBusy(true);
+    await chrome.bookmarks.create({
+      parentId: editingBookmark.parentId,
+      index: editingBookmark.index,
+      title: nextTitle || nextUrl,
+      url: nextUrl,
+    });
+    await chrome.bookmarks.remove(editingBookmark.id);
+    await refresh();
+    cancelBookmarkEdit();
+    setToast('북마크 수정됨');
   };
 
   const onDragCollectionStart = (e: React.DragEvent, collection: CollectionSummary) => {
@@ -635,7 +704,7 @@ const NewTab = () => {
                       </div>
                       <ul className="link-list">
                         <AnimatePresence initial={false}>
-                          {col.links.slice(0, 8).map(link => {
+                          {col.links.slice(0, 8).map((link, linkIndex) => {
                             const icon = getFaviconSrc(link);
                             return (
                               <motion.li
@@ -656,28 +725,100 @@ const NewTab = () => {
                                     )
                                   }>
                                   <ContextMenu.Trigger asChild>
-                                    <button
-                                      className={`link-row ${
-                                        activeContext?.kind === 'bookmark' && activeContext.id === link.id
-                                          ? 'context-active'
-                                          : ''
-                                      }`}
-                                      onClick={() => openLink(link.url)}
-                                      title={link.url || ''}>
-                                      <img
-                                        className="fav"
-                                        src={icon}
-                                        alt=""
-                                        onError={() => onFaviconError(link)}
-                                        onLoad={e =>
-                                          rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)
-                                        }
-                                      />
-                                      <span className="link-main">
-                                        <span className="link-title">{link.title || link.url}</span>
-                                        <span className="link-domain">{getDomain(link.url)}</span>
-                                      </span>
-                                    </button>
+                                    {editingBookmark?.id === link.id ? (
+                                      <div className="bookmark-item is-editing">
+                                        <img
+                                          className="fav"
+                                          src={icon}
+                                          alt=""
+                                          onError={() => onFaviconError(link)}
+                                          onLoad={e =>
+                                            rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)
+                                          }
+                                        />
+                                        <span className="link-main">
+                                          <input
+                                            ref={editingTitleRef}
+                                            className="bookmark-edit-input title"
+                                            value={editingTitle}
+                                            onChange={e => setEditingTitle(e.currentTarget.value)}
+                                            onKeyDown={e => {
+                                              if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                void saveBookmarkEdit();
+                                              } else if (e.key === 'Escape') {
+                                                e.preventDefault();
+                                                cancelBookmarkEdit();
+                                              }
+                                            }}
+                                            onBlur={() => {
+                                              setTimeout(() => {
+                                                const active = document.activeElement;
+                                                if (
+                                                  active === editingTitleRef.current ||
+                                                  active === editingUrlRef.current
+                                                )
+                                                  return;
+                                                void saveBookmarkEdit();
+                                              }, 0);
+                                            }}
+                                            placeholder="제목"
+                                            disabled={editingBookmarkBusy}
+                                          />
+                                          <input
+                                            ref={editingUrlRef}
+                                            className="bookmark-edit-input url"
+                                            value={editingUrl}
+                                            onChange={e => setEditingUrl(e.currentTarget.value)}
+                                            onKeyDown={e => {
+                                              if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                void saveBookmarkEdit();
+                                              } else if (e.key === 'Escape') {
+                                                e.preventDefault();
+                                                cancelBookmarkEdit();
+                                              }
+                                            }}
+                                            onBlur={() => {
+                                              setTimeout(() => {
+                                                const active = document.activeElement;
+                                                if (
+                                                  active === editingTitleRef.current ||
+                                                  active === editingUrlRef.current
+                                                )
+                                                  return;
+                                                void saveBookmarkEdit();
+                                              }, 0);
+                                            }}
+                                            placeholder="https://"
+                                            disabled={editingBookmarkBusy}
+                                          />
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        className={`link-row ${
+                                          activeContext?.kind === 'bookmark' && activeContext.id === link.id
+                                            ? 'context-active'
+                                            : ''
+                                        }`}
+                                        onClick={() => openLink(link.url)}
+                                        title={link.url || ''}>
+                                        <img
+                                          className="fav"
+                                          src={icon}
+                                          alt=""
+                                          onError={() => onFaviconError(link)}
+                                          onLoad={e =>
+                                            rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)
+                                          }
+                                        />
+                                        <span className="link-main">
+                                          <span className="link-title">{link.title || link.url}</span>
+                                          <span className="link-domain">{getDomain(link.url)}</span>
+                                        </span>
+                                      </button>
+                                    )}
                                   </ContextMenu.Trigger>
                                   <ContextMenu.Portal>
                                     <ContextMenu.Content className="col-context-menu" align="end" sideOffset={4}>
@@ -694,6 +835,11 @@ const NewTab = () => {
                                         className="col-context-item"
                                         onSelect={() => void copyLink(link.url)}>
                                         링크 복사
+                                      </ContextMenu.Item>
+                                      <ContextMenu.Item
+                                        className="col-context-item"
+                                        onSelect={() => startBookmarkEdit(link, col.id, linkIndex)}>
+                                        수정
                                       </ContextMenu.Item>
                                       <ContextMenu.Separator className="col-context-separator" />
                                       <ContextMenu.Item

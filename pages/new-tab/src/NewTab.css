@@ -420,6 +420,20 @@ button.active {
   background: #eef4ff;
 }
 
+.bookmark-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: var(--radius-sm);
+  padding: 16px 14px;
+}
+
+.bookmark-item.is-editing {
+  background-color: rgba(0, 122, 255, 0.05);
+  transition: background-color 0.2s ease;
+}
+
 .fav {
   width: 16px;
   height: 16px;
@@ -448,6 +462,40 @@ button.active {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.bookmark-edit-input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  outline: none;
+  box-shadow: none;
+  padding: 2px 6px;
+  margin-left: -6px;
+}
+
+.bookmark-edit-input.title {
+  color: #1c1c1e;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.bookmark-edit-input.url {
+  color: #8e8e93;
+  font-size: 11px;
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.bookmark-edit-input::placeholder {
+  color: #c7c7cc;
+}
+
+.bookmark-edit-input:focus {
+  background: #fff;
+  border: 1px solid rgba(0, 122, 255, 0.5);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.25);
 }
 
 .col-context-menu {
