@@ -300,6 +300,66 @@ button.active {
   background: #eff3fb;
 }
 
+.workspace-flyout {
+  position: fixed;
+  z-index: 55;
+  width: 220px;
+  background: rgba(255, 255, 255, 0.75);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  box-shadow:
+    0 12px 48px rgba(0, 0, 0, 0.12),
+    0 4px 16px rgba(0, 0, 0, 0.04);
+  padding: 12px;
+}
+
+.workspace-flyout-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #8e8e93;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  padding-left: 4px;
+}
+
+.workspace-flyout-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.workspace-flyout-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1c1c1e;
+}
+
+.workspace-flyout-list li:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.workspace-flyout-icon {
+  width: 14px;
+  height: 14px;
+  color: #a1a1aa;
+  flex: 0 0 auto;
+}
+
+.workspace-flyout-more {
+  font-size: 12px !important;
+  font-weight: 500;
+  color: #8e8e93 !important;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));

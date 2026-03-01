@@ -46,6 +46,14 @@ type EditingBookmark = {
   originalUrl: string;
 };
 
+type WorkspaceFlyout = {
+  workspaceId: string;
+  title: string;
+  collections: string[];
+  x: number;
+  y: number;
+};
+
 const ROOT_FOLDER = 'Bookmark Workspace';
 const DND_TAB_MIME = 'application/x-bookmark-workspace-tab';
 const DND_COLLECTION_MIME = 'application/x-bookmark-workspace-collection';
@@ -102,6 +110,9 @@ const NewTab = () => {
   const [editingBookmarkBusy, setEditingBookmarkBusy] = useState(false);
   const editingTitleRef = useRef<HTMLInputElement | null>(null);
   const editingUrlRef = useRef<HTMLInputElement | null>(null);
+  const [workspaceFlyout, setWorkspaceFlyout] = useState<WorkspaceFlyout | null>(null);
+  const openFlyoutTimerRef = useRef<number | null>(null);
+  const closeFlyoutTimerRef = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
     const next = await loadTree();
@@ -170,6 +181,14 @@ const NewTab = () => {
       editingTitleRef.current?.select();
     });
   }, [editingBookmark]);
+
+  useEffect(
+    () => () => {
+      if (openFlyoutTimerRef.current) window.clearTimeout(openFlyoutTimerRef.current);
+      if (closeFlyoutTimerRef.current) window.clearTimeout(closeFlyoutTimerRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     window.localStorage.setItem(LS_SELECTED_SPACE, workspaceId);
@@ -406,6 +425,38 @@ const NewTab = () => {
     setToast('북마크 수정됨');
   };
 
+  const scheduleWorkspaceFlyoutOpen = (ws: BookmarkNode, anchorEl: HTMLElement) => {
+    if (closeFlyoutTimerRef.current) {
+      window.clearTimeout(closeFlyoutTimerRef.current);
+      closeFlyoutTimerRef.current = null;
+    }
+    if (openFlyoutTimerRef.current) window.clearTimeout(openFlyoutTimerRef.current);
+    openFlyoutTimerRef.current = window.setTimeout(() => {
+      const rect = anchorEl.getBoundingClientRect();
+      const collections = (ws.children || []).filter(isFolder).map(c => c.title || 'Untitled');
+      setWorkspaceFlyout({
+        workspaceId: ws.id,
+        title: ws.title || 'Untitled',
+        collections,
+        x: rect.right + 10,
+        y: rect.top - 4,
+      });
+      openFlyoutTimerRef.current = null;
+    }, 400);
+  };
+
+  const scheduleWorkspaceFlyoutClose = () => {
+    if (openFlyoutTimerRef.current) {
+      window.clearTimeout(openFlyoutTimerRef.current);
+      openFlyoutTimerRef.current = null;
+    }
+    if (closeFlyoutTimerRef.current) window.clearTimeout(closeFlyoutTimerRef.current);
+    closeFlyoutTimerRef.current = window.setTimeout(() => {
+      setWorkspaceFlyout(null);
+      closeFlyoutTimerRef.current = null;
+    }, 200);
+  };
+
   const onDragCollectionStart = (e: React.DragEvent, collection: CollectionSummary) => {
     setDragKind('collection');
     e.dataTransfer.clearData();
@@ -563,7 +614,9 @@ const NewTab = () => {
               {workspaces.map(ws => (
                 <ContextMenu.Root key={ws.id}>
                   <ContextMenu.Trigger asChild>
-                    <li>
+                    <li
+                      onMouseEnter={e => scheduleWorkspaceFlyoutOpen(ws, e.currentTarget)}
+                      onMouseLeave={scheduleWorkspaceFlyoutClose}>
                       <button
                         className={`${workspaceId === ws.id ? 'active' : ''} ${
                           dropWorkspaceId === ws.id ? 'drop-target' : ''
@@ -645,6 +698,61 @@ const NewTab = () => {
                 </button>
               </li>
             </ul>
+            <AnimatePresence>
+              {workspaceFlyout && (
+                <motion.div
+                  key={workspaceFlyout.workspaceId}
+                  className="workspace-flyout"
+                  style={{ left: workspaceFlyout.x, top: workspaceFlyout.y }}
+                  initial={{ opacity: 0, x: -8, scale: 0.97, filter: 'blur(4px)' }}
+                  animate={{
+                    opacity: 1,
+                    x: 0,
+                    scale: 1,
+                    filter: 'blur(0px)',
+                    transition: { type: 'spring', stiffness: 450, damping: 30, mass: 0.8 },
+                  }}
+                  exit={{ opacity: 0, x: -4, scale: 0.98, transition: { duration: 0.15, ease: 'easeOut' } }}
+                  onMouseEnter={() => {
+                    if (closeFlyoutTimerRef.current) {
+                      window.clearTimeout(closeFlyoutTimerRef.current);
+                      closeFlyoutTimerRef.current = null;
+                    }
+                  }}
+                  onMouseLeave={scheduleWorkspaceFlyoutClose}>
+                  <div className="workspace-flyout-title">포함된 컬렉션</div>
+                  <ul className="workspace-flyout-list">
+                    {workspaceFlyout.collections.slice(0, 5).map((name, idx) => (
+                      <li key={`${workspaceFlyout.workspaceId}-${idx}-${name}`}>
+                        <svg className="workspace-flyout-icon" viewBox="0 0 24 24" aria-hidden="true">
+                          <rect
+                            x="4.5"
+                            y="4.5"
+                            width="15"
+                            height="15"
+                            rx="2.4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                          />
+                          <path
+                            d="M12 8v8M8 12h8"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        <span>{name}</span>
+                      </li>
+                    ))}
+                    {workspaceFlyout.collections.length > 5 && (
+                      <li className="workspace-flyout-more">+ {workspaceFlyout.collections.length - 5}개 더보기…</li>
+                    )}
+                  </ul>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </aside>
 
