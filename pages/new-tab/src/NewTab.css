@@ -238,6 +238,26 @@ button.active {
   color: #7f7f87;
 }
 
+.workspace-list-static {
+  margin-top: 6px;
+}
+
+.workspace-reorder-item {
+  list-style: none;
+}
+
+.workspace-reorder-item button {
+  cursor: grab;
+}
+
+.workspace-reorder-item button:active {
+  cursor: grabbing;
+}
+
+.workspace-reorder-item.dragging {
+  border-radius: var(--radius-sm);
+}
+
 .workspace-list button:hover {
   background: #f1f1f5;
 }

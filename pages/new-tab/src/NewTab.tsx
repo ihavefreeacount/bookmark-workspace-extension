@@ -8,7 +8,7 @@ import {
   rememberFaviconFailure,
 } from '@src/lib/favicon-resolver';
 import { Command } from 'cmdk';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, Reorder } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import '@src/NewTab.css';
@@ -105,6 +105,9 @@ const NewTab = () => {
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [activeContext, setActiveContext] = useState<ActiveContext>(null);
+  const [workspaceOrderIds, setWorkspaceOrderIds] = useState<string[]>([]);
+  const [draggingWorkspaceId, setDraggingWorkspaceId] = useState<string | null>(null);
+  const [workspaceReorderBusy, setWorkspaceReorderBusy] = useState(false);
   const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(null);
   const [editingWorkspaceName, setEditingWorkspaceName] = useState('');
   const [editingWorkspaceBusy, setEditingWorkspaceBusy] = useState(false);
@@ -228,6 +231,13 @@ const NewTab = () => {
   }, []);
 
   const workspaces = useMemo(() => (tree?.children || []).filter(isFolder), [tree]);
+  const orderedWorkspaces = useMemo(() => {
+    if (!workspaceOrderIds.length) return workspaces;
+    const map = new Map(workspaces.map(ws => [ws.id, ws]));
+    const kept = workspaceOrderIds.map(id => map.get(id)).filter((v): v is BookmarkNode => !!v);
+    const appended = workspaces.filter(ws => !workspaceOrderIds.includes(ws.id));
+    return [...kept, ...appended];
+  }, [workspaces, workspaceOrderIds]);
   const selectedWorkspace = useMemo(() => workspaces.find(w => w.id === workspaceId), [workspaces, workspaceId]);
 
   const collections = useMemo(() => {
@@ -266,6 +276,16 @@ const NewTab = () => {
       }
     }
     return out;
+  }, [workspaces]);
+
+  useEffect(() => {
+    setWorkspaceOrderIds(prev => {
+      const nextIds = workspaces.map(ws => ws.id);
+      if (!prev.length) return nextIds;
+      const kept = prev.filter(id => nextIds.includes(id));
+      const added = nextIds.filter(id => !kept.includes(id));
+      return [...kept, ...added];
+    });
   }, [workspaces]);
 
   const openWorkspaceInlineInput = () => {
@@ -502,6 +522,18 @@ const NewTab = () => {
     setToast('스페이스 이름 수정됨');
   };
 
+  const persistWorkspaceOrder = async () => {
+    if (!tree || workspaceReorderBusy) return;
+    setWorkspaceReorderBusy(true);
+    for (let i = 0; i < workspaceOrderIds.length; i += 1) {
+      const id = workspaceOrderIds[i];
+      await chrome.bookmarks.move(id, { parentId: tree.id, index: i });
+    }
+    await refresh();
+    setWorkspaceReorderBusy(false);
+    setToast('스페이스 순서 변경됨');
+  };
+
   const onDragCollectionStart = (e: React.DragEvent, collection: CollectionSummary) => {
     setDragKind('collection');
     e.dataTransfer.clearData();
@@ -655,77 +687,100 @@ const NewTab = () => {
       <main className={`layout ${leftCollapsed ? 'left-collapsed' : ''} ${rightCollapsed ? 'right-collapsed' : ''}`}>
         <aside className="panel left">
           <div className="panel-content">
-            <ul className="workspace-list">
-              {workspaces.map(ws => (
-                <ContextMenu.Root key={ws.id}>
-                  <ContextMenu.Trigger asChild>
-                    <li>
-                      {editingWorkspaceId === ws.id ? (
-                        <div className="workspace-item is-editing">
-                          <input
-                            ref={editingWorkspaceRef}
-                            className="workspace-edit-input"
-                            value={editingWorkspaceName}
-                            onChange={e => setEditingWorkspaceName(e.currentTarget.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
+            <Reorder.Group
+              axis="y"
+              values={workspaceOrderIds}
+              onReorder={setWorkspaceOrderIds}
+              className="workspace-list">
+              {orderedWorkspaces.map(ws => (
+                <Reorder.Item
+                  key={ws.id}
+                  value={ws.id}
+                  className={`workspace-reorder-item ${draggingWorkspaceId === ws.id ? 'dragging' : ''}`}
+                  whileDrag={{
+                    scale: 1.02,
+                    background: 'rgba(255, 255, 255, 0.8)',
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+                  }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  onDragStart={() => setDraggingWorkspaceId(ws.id)}
+                  onDragEnd={() => {
+                    setDraggingWorkspaceId(null);
+                    void persistWorkspaceOrder();
+                  }}>
+                  <ContextMenu.Root>
+                    <ContextMenu.Trigger asChild>
+                      <div>
+                        {editingWorkspaceId === ws.id ? (
+                          <div className="workspace-item is-editing">
+                            <input
+                              ref={editingWorkspaceRef}
+                              className="workspace-edit-input"
+                              value={editingWorkspaceName}
+                              onChange={e => setEditingWorkspaceName(e.currentTarget.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  void saveWorkspaceEdit();
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  cancelWorkspaceEdit();
+                                }
+                              }}
+                              onBlur={() => {
                                 void saveWorkspaceEdit();
-                              } else if (e.key === 'Escape') {
-                                e.preventDefault();
-                                cancelWorkspaceEdit();
-                              }
+                              }}
+                              disabled={editingWorkspaceBusy}
+                            />
+                          </div>
+                        ) : (
+                          <button
+                            className={`${workspaceId === ws.id ? 'active' : ''} ${
+                              dropWorkspaceId === ws.id ? 'drop-target' : ''
+                            }`}
+                            onMouseEnter={e => scheduleWorkspaceFlyoutOpen(ws, e.currentTarget)}
+                            onMouseLeave={scheduleWorkspaceFlyoutClose}
+                            onClick={() => setWorkspaceId(ws.id)}
+                            onDragOver={e => {
+                              if (dragKind !== 'collection') return;
+                              e.preventDefault();
+                              if (dropWorkspaceId !== ws.id) setDropWorkspaceId(ws.id);
                             }}
-                            onBlur={() => {
-                              void saveWorkspaceEdit();
+                            onDragLeave={() => {
+                              if (dropWorkspaceId === ws.id) setDropWorkspaceId(null);
                             }}
-                            disabled={editingWorkspaceBusy}
-                          />
-                        </div>
-                      ) : (
-                        <button
-                          className={`${workspaceId === ws.id ? 'active' : ''} ${
-                            dropWorkspaceId === ws.id ? 'drop-target' : ''
-                          }`}
-                          onMouseEnter={e => scheduleWorkspaceFlyoutOpen(ws, e.currentTarget)}
-                          onMouseLeave={scheduleWorkspaceFlyoutClose}
-                          onClick={() => setWorkspaceId(ws.id)}
-                          onDragOver={e => {
-                            if (dragKind !== 'collection') return;
-                            e.preventDefault();
-                            if (dropWorkspaceId !== ws.id) setDropWorkspaceId(ws.id);
-                          }}
-                          onDragLeave={() => {
-                            if (dropWorkspaceId === ws.id) setDropWorkspaceId(null);
-                          }}
-                          onDrop={e => onDropCollectionToWorkspace(e, ws)}>
-                          {ws.title}
-                        </button>
-                      )}
-                    </li>
-                  </ContextMenu.Trigger>
-                  <ContextMenu.Portal>
-                    <ContextMenu.Content className="col-context-menu" align="end" sideOffset={4}>
-                      <div className="col-context-label">스페이스 메뉴 · {ws.title}</div>
-                      <ContextMenu.Separator className="col-context-separator" />
-                      <ContextMenu.Item className="col-context-item" onSelect={() => startWorkspaceEdit(ws)}>
-                        수정
-                      </ContextMenu.Item>
-                      <ContextMenu.Item
-                        className="col-context-item col-context-item-destructive"
-                        onSelect={() =>
-                          setDeleteTarget({
-                            kind: 'workspace',
-                            id: ws.id,
-                            title: ws.title || 'Untitled',
-                          })
-                        }>
-                        스페이스 삭제
-                      </ContextMenu.Item>
-                    </ContextMenu.Content>
-                  </ContextMenu.Portal>
-                </ContextMenu.Root>
+                            onDrop={e => onDropCollectionToWorkspace(e, ws)}>
+                            {ws.title}
+                          </button>
+                        )}
+                      </div>
+                    </ContextMenu.Trigger>
+                    <ContextMenu.Portal>
+                      <ContextMenu.Content className="col-context-menu" align="end" sideOffset={4}>
+                        <div className="col-context-label">스페이스 메뉴 · {ws.title}</div>
+                        <ContextMenu.Separator className="col-context-separator" />
+                        <ContextMenu.Item className="col-context-item" onSelect={() => startWorkspaceEdit(ws)}>
+                          수정
+                        </ContextMenu.Item>
+                        <ContextMenu.Item
+                          className="col-context-item col-context-item-destructive"
+                          onSelect={() =>
+                            setDeleteTarget({
+                              kind: 'workspace',
+                              id: ws.id,
+                              title: ws.title || 'Untitled',
+                            })
+                          }>
+                          스페이스 삭제
+                        </ContextMenu.Item>
+                      </ContextMenu.Content>
+                    </ContextMenu.Portal>
+                  </ContextMenu.Root>
+                </Reorder.Item>
               ))}
+            </Reorder.Group>
+            <ul className="workspace-list workspace-list-static">
               {workspaceInlineOpen && (
                 <li className="workspace-inline-input-item">
                   <input
