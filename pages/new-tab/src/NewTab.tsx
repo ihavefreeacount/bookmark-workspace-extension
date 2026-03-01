@@ -621,19 +621,18 @@ const NewTab = () => {
                       {col.links.slice(0, 8).map(link => {
                         const icon = getFaviconSrc(link);
                         return (
-                          <ContextMenu.Root
-                            key={link.id}
-                            onOpenChange={open =>
-                              setActiveContext(prev =>
-                                open
-                                  ? { kind: 'bookmark', id: link.id }
-                                  : prev?.kind === 'bookmark' && prev.id === link.id
-                                    ? null
-                                    : prev,
-                              )
-                            }>
-                            <ContextMenu.Trigger asChild>
-                              <li onContextMenu={e => e.stopPropagation()}>
+                          <li key={link.id}>
+                            <ContextMenu.Root
+                              onOpenChange={open =>
+                                setActiveContext(prev =>
+                                  open
+                                    ? { kind: 'bookmark', id: link.id }
+                                    : prev?.kind === 'bookmark' && prev.id === link.id
+                                      ? null
+                                      : prev,
+                                )
+                              }>
+                              <ContextMenu.Trigger asChild>
                                 <button
                                   className={`link-row ${
                                     activeContext?.kind === 'bookmark' && activeContext.id === link.id
@@ -641,7 +640,6 @@ const NewTab = () => {
                                       : ''
                                   }`}
                                   onClick={() => openLink(link.url)}
-                                  onContextMenu={e => e.stopPropagation()}
                                   title={link.url || ''}>
                                   <img
                                     className="fav"
@@ -655,36 +653,40 @@ const NewTab = () => {
                                     <span className="link-domain">{getDomain(link.url)}</span>
                                   </span>
                                 </button>
-                              </li>
-                            </ContextMenu.Trigger>
-                            <ContextMenu.Portal>
-                              <ContextMenu.Content className="col-context-menu" align="end" sideOffset={4}>
-                                <div className="col-context-label">
-                                  북마크 메뉴 · {link.title || getDomain(link.url) || 'Untitled'}
-                                </div>
-                                <ContextMenu.Separator className="col-context-separator" />
-                                <ContextMenu.Item className="col-context-item" onSelect={() => void openLink(link.url)}>
-                                  새 탭에서 열기
-                                </ContextMenu.Item>
-                                <ContextMenu.Item className="col-context-item" onSelect={() => void copyLink(link.url)}>
-                                  링크 복사
-                                </ContextMenu.Item>
-                                <ContextMenu.Separator className="col-context-separator" />
-                                <ContextMenu.Item
-                                  className="col-context-item col-context-item-destructive"
-                                  onSelect={() =>
-                                    setDeleteTarget({
-                                      kind: 'bookmark',
-                                      id: link.id,
-                                      title: link.title || link.url || 'Untitled',
-                                      url: link.url,
-                                    })
-                                  }>
-                                  북마크 삭제
-                                </ContextMenu.Item>
-                              </ContextMenu.Content>
-                            </ContextMenu.Portal>
-                          </ContextMenu.Root>
+                              </ContextMenu.Trigger>
+                              <ContextMenu.Portal>
+                                <ContextMenu.Content className="col-context-menu" align="end" sideOffset={4}>
+                                  <div className="col-context-label">
+                                    북마크 메뉴 · {link.title || getDomain(link.url) || 'Untitled'}
+                                  </div>
+                                  <ContextMenu.Separator className="col-context-separator" />
+                                  <ContextMenu.Item
+                                    className="col-context-item"
+                                    onSelect={() => void openLink(link.url)}>
+                                    새 탭에서 열기
+                                  </ContextMenu.Item>
+                                  <ContextMenu.Item
+                                    className="col-context-item"
+                                    onSelect={() => void copyLink(link.url)}>
+                                    링크 복사
+                                  </ContextMenu.Item>
+                                  <ContextMenu.Separator className="col-context-separator" />
+                                  <ContextMenu.Item
+                                    className="col-context-item col-context-item-destructive"
+                                    onSelect={() =>
+                                      setDeleteTarget({
+                                        kind: 'bookmark',
+                                        id: link.id,
+                                        title: link.title || link.url || 'Untitled',
+                                        url: link.url,
+                                      })
+                                    }>
+                                    북마크 삭제
+                                  </ContextMenu.Item>
+                                </ContextMenu.Content>
+                              </ContextMenu.Portal>
+                            </ContextMenu.Root>
+                          </li>
                         );
                       })}
                     </ul>
