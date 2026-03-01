@@ -32,6 +32,7 @@ type CommandLink = {
 };
 
 type DeleteTarget =
+  | { kind: 'workspace'; id: string; title: string }
   | { kind: 'collection'; id: string; title: string }
   | { kind: 'bookmark'; id: string; title: string; url?: string };
 
@@ -312,7 +313,10 @@ const NewTab = () => {
   const confirmDelete = async () => {
     if (!deleteTarget || deleteBusy) return;
     setDeleteBusy(true);
-    if (deleteTarget.kind === 'collection') {
+    if (deleteTarget.kind === 'workspace') {
+      await chrome.bookmarks.removeTree(deleteTarget.id);
+      setToast('스페이스가 삭제됨');
+    } else if (deleteTarget.kind === 'collection') {
       await chrome.bookmarks.removeTree(deleteTarget.id);
       setToast('컬렉션이 삭제됨');
     } else {
@@ -557,22 +561,45 @@ const NewTab = () => {
           <div className="panel-content">
             <ul className="workspace-list">
               {workspaces.map(ws => (
-                <li key={ws.id}>
-                  <button
-                    className={`${workspaceId === ws.id ? 'active' : ''} ${dropWorkspaceId === ws.id ? 'drop-target' : ''}`}
-                    onClick={() => setWorkspaceId(ws.id)}
-                    onDragOver={e => {
-                      if (dragKind !== 'collection') return;
-                      e.preventDefault();
-                      if (dropWorkspaceId !== ws.id) setDropWorkspaceId(ws.id);
-                    }}
-                    onDragLeave={() => {
-                      if (dropWorkspaceId === ws.id) setDropWorkspaceId(null);
-                    }}
-                    onDrop={e => onDropCollectionToWorkspace(e, ws)}>
-                    {ws.title}
-                  </button>
-                </li>
+                <ContextMenu.Root key={ws.id}>
+                  <ContextMenu.Trigger asChild>
+                    <li>
+                      <button
+                        className={`${workspaceId === ws.id ? 'active' : ''} ${
+                          dropWorkspaceId === ws.id ? 'drop-target' : ''
+                        }`}
+                        onClick={() => setWorkspaceId(ws.id)}
+                        onDragOver={e => {
+                          if (dragKind !== 'collection') return;
+                          e.preventDefault();
+                          if (dropWorkspaceId !== ws.id) setDropWorkspaceId(ws.id);
+                        }}
+                        onDragLeave={() => {
+                          if (dropWorkspaceId === ws.id) setDropWorkspaceId(null);
+                        }}
+                        onDrop={e => onDropCollectionToWorkspace(e, ws)}>
+                        {ws.title}
+                      </button>
+                    </li>
+                  </ContextMenu.Trigger>
+                  <ContextMenu.Portal>
+                    <ContextMenu.Content className="col-context-menu" align="end" sideOffset={4}>
+                      <div className="col-context-label">스페이스 메뉴 · {ws.title}</div>
+                      <ContextMenu.Separator className="col-context-separator" />
+                      <ContextMenu.Item
+                        className="col-context-item col-context-item-destructive"
+                        onSelect={() =>
+                          setDeleteTarget({
+                            kind: 'workspace',
+                            id: ws.id,
+                            title: ws.title || 'Untitled',
+                          })
+                        }>
+                        스페이스 삭제
+                      </ContextMenu.Item>
+                    </ContextMenu.Content>
+                  </ContextMenu.Portal>
+                </ContextMenu.Root>
               ))}
               {workspaceInlineOpen && (
                 <li className="workspace-inline-input-item">
@@ -945,12 +972,18 @@ const NewTab = () => {
           <AlertDialog.Overlay className="confirm-overlay" />
           <AlertDialog.Content className="confirm-dialog">
             <AlertDialog.Title className="confirm-title">
-              {deleteTarget?.kind === 'bookmark' ? '북마크를 삭제할까요?' : '그룹을 삭제할까요?'}
+              {deleteTarget?.kind === 'bookmark'
+                ? '북마크를 삭제할까요?'
+                : deleteTarget?.kind === 'workspace'
+                  ? '스페이스를 삭제할까요?'
+                  : '그룹을 삭제할까요?'}
             </AlertDialog.Title>
             <AlertDialog.Description className="confirm-desc">
               {deleteTarget?.kind === 'bookmark'
                 ? `${deleteTarget.title} 북마크가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
-                : `${deleteTarget?.title || '선택된 그룹'} 및 하위 북마크가 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`}
+                : deleteTarget?.kind === 'workspace'
+                  ? `${deleteTarget.title} 스페이스와 하위 컬렉션/북마크가 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
+                  : `${deleteTarget?.title || '선택된 그룹'} 및 하위 북마크가 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`}
             </AlertDialog.Description>
             <div className="confirm-actions">
               <AlertDialog.Cancel asChild>
