@@ -26,7 +26,8 @@
     "@extension/ui": "workspace:*",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-context-menu": "^2.2.16",
-    "cmdk": "^1.1.1"
+    "cmdk": "^1.1.1",
+    "motion": "^12.34.3"
   },
   "devDependencies": {
     "@extension/tailwindcss-config": "workspace:*",

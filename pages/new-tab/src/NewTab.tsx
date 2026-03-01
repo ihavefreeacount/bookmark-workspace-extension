@@ -8,6 +8,7 @@ import {
   rememberFaviconFailure,
 } from '@src/lib/favicon-resolver';
 import { Command } from 'cmdk';
+import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import '@src/NewTab.css';
 
@@ -556,172 +557,198 @@ const NewTab = () => {
 
         <section className="panel center">
           <div className="grid">
-            {collectionInlineOpen && (
-              <article className="col-card inline-input-card">
-                <div className="col-head">
-                  <input
-                    ref={collectionInlineRef}
-                    className="col-inline-input"
-                    type="text"
-                    placeholder="새 컬렉션 이름..."
-                    value={collectionInlineName}
-                    onChange={e => setCollectionInlineName(e.currentTarget.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
+            <AnimatePresence initial={false}>
+              {collectionInlineOpen && (
+                <motion.article
+                  key="inline-collection-input"
+                  className="col-card inline-input-card"
+                  layout
+                  initial={{ opacity: 0, scale: 0.97, y: -8 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.97, y: -8 }}
+                  transition={{ duration: 0.18 }}>
+                  <div className="col-head">
+                    <input
+                      ref={collectionInlineRef}
+                      className="col-inline-input"
+                      type="text"
+                      placeholder="새 컬렉션 이름..."
+                      value={collectionInlineName}
+                      onChange={e => setCollectionInlineName(e.currentTarget.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void submitCollectionInlineInput();
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault();
+                          closeCollectionInlineInput();
+                        }
+                      }}
+                      onBlur={() => {
                         void submitCollectionInlineInput();
-                      } else if (e.key === 'Escape') {
+                      }}
+                      disabled={collectionInlineBusy}
+                    />
+                  </div>
+                </motion.article>
+              )}
+            </AnimatePresence>
+            <AnimatePresence initial={false}>
+              {collections.map(col => (
+                <ContextMenu.Root
+                  key={col.id}
+                  onOpenChange={open =>
+                    setActiveContext(prev =>
+                      open
+                        ? { kind: 'collection', id: col.id }
+                        : prev?.kind === 'collection' && prev.id === col.id
+                          ? null
+                          : prev,
+                    )
+                  }>
+                  <ContextMenu.Trigger asChild>
+                    <motion.article
+                      className={`col-card ${dropCollectionId === col.id ? 'drop-target' : ''} ${
+                        activeContext?.kind === 'collection' && activeContext.id === col.id ? 'context-active' : ''
+                      }`}
+                      layout
+                      initial={{ opacity: 0, scale: 0.985, y: -6 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.96, y: -10 }}
+                      transition={{ duration: 0.2, ease: 'easeOut' }}
+                      draggable
+                      onDragStart={e => onDragCollectionStart(e, col)}
+                      onDragEnd={() => {
+                        setDropWorkspaceId(null);
+                        setDropCollectionId(null);
+                        setDragKind(null);
+                      }}
+                      onDragOver={e => {
+                        if (dragKind !== 'tab') return;
                         e.preventDefault();
-                        closeCollectionInlineInput();
-                      }
-                    }}
-                    onBlur={() => {
-                      void submitCollectionInlineInput();
-                    }}
-                    disabled={collectionInlineBusy}
-                  />
-                </div>
-              </article>
-            )}
-            {collections.map(col => (
-              <ContextMenu.Root
-                key={col.id}
-                onOpenChange={open =>
-                  setActiveContext(prev =>
-                    open
-                      ? { kind: 'collection', id: col.id }
-                      : prev?.kind === 'collection' && prev.id === col.id
-                        ? null
-                        : prev,
-                  )
-                }>
-                <ContextMenu.Trigger asChild>
-                  <article
-                    className={`col-card ${dropCollectionId === col.id ? 'drop-target' : ''} ${
-                      activeContext?.kind === 'collection' && activeContext.id === col.id ? 'context-active' : ''
-                    }`}
-                    draggable
-                    onDragStart={e => onDragCollectionStart(e, col)}
-                    onDragEnd={() => {
-                      setDropWorkspaceId(null);
-                      setDropCollectionId(null);
-                      setDragKind(null);
-                    }}
-                    onDragOver={e => {
-                      if (dragKind !== 'tab') return;
-                      e.preventDefault();
-                      setDropCollectionId(col.id);
-                    }}
-                    onDragLeave={() => setDropCollectionId(null)}
-                    onDrop={e => onDropTabToCollection(e, col.id)}>
-                    <div className="col-head">
-                      <h3 className="col-title">{col.title}</h3>
-                    </div>
-                    <ul className="link-list">
-                      {col.links.slice(0, 8).map(link => {
-                        const icon = getFaviconSrc(link);
-                        return (
-                          <li key={link.id}>
-                            <ContextMenu.Root
-                              onOpenChange={open =>
-                                setActiveContext(prev =>
-                                  open
-                                    ? { kind: 'bookmark', id: link.id }
-                                    : prev?.kind === 'bookmark' && prev.id === link.id
-                                      ? null
-                                      : prev,
-                                )
-                              }>
-                              <ContextMenu.Trigger asChild>
-                                <button
-                                  className={`link-row ${
-                                    activeContext?.kind === 'bookmark' && activeContext.id === link.id
-                                      ? 'context-active'
-                                      : ''
-                                  }`}
-                                  onClick={() => openLink(link.url)}
-                                  title={link.url || ''}>
-                                  <img
-                                    className="fav"
-                                    src={icon}
-                                    alt=""
-                                    onError={() => onFaviconError(link)}
-                                    onLoad={e => rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)}
-                                  />
-                                  <span className="link-main">
-                                    <span className="link-title">{link.title || link.url}</span>
-                                    <span className="link-domain">{getDomain(link.url)}</span>
-                                  </span>
-                                </button>
-                              </ContextMenu.Trigger>
-                              <ContextMenu.Portal>
-                                <ContextMenu.Content className="col-context-menu" align="end" sideOffset={4}>
-                                  <div className="col-context-label">
-                                    북마크 메뉴 · {link.title || getDomain(link.url) || 'Untitled'}
-                                  </div>
-                                  <ContextMenu.Separator className="col-context-separator" />
-                                  <ContextMenu.Item
-                                    className="col-context-item"
-                                    onSelect={() => void openLink(link.url)}>
-                                    새 탭에서 열기
-                                  </ContextMenu.Item>
-                                  <ContextMenu.Item
-                                    className="col-context-item"
-                                    onSelect={() => void copyLink(link.url)}>
-                                    링크 복사
-                                  </ContextMenu.Item>
-                                  <ContextMenu.Separator className="col-context-separator" />
-                                  <ContextMenu.Item
-                                    className="col-context-item col-context-item-destructive"
-                                    onSelect={() =>
-                                      setDeleteTarget({
-                                        kind: 'bookmark',
-                                        id: link.id,
-                                        title: link.title || link.url || 'Untitled',
-                                        url: link.url,
-                                      })
-                                    }>
-                                    북마크 삭제
-                                  </ContextMenu.Item>
-                                </ContextMenu.Content>
-                              </ContextMenu.Portal>
-                            </ContextMenu.Root>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </article>
-                </ContextMenu.Trigger>
-                <ContextMenu.Portal>
-                  <ContextMenu.Content className="col-context-menu" alignOffset={-4}>
-                    <div className="col-context-label">그룹 메뉴 · {col.title}</div>
-                    <ContextMenu.Separator className="col-context-separator" />
-                    <ContextMenu.Item
-                      className="col-context-item"
-                      onSelect={() => void openCollection(col.id, 'group')}>
-                      그룹 열기
-                    </ContextMenu.Item>
-                    <ContextMenu.Item
-                      className="col-context-item"
-                      onSelect={() => void openCollection(col.id, 'new-window')}>
-                      새 창 열기
-                    </ContextMenu.Item>
-                    <ContextMenu.Separator className="col-context-separator" />
-                    <ContextMenu.Item
-                      className="col-context-item col-context-item-destructive"
-                      onSelect={() =>
-                        setDeleteTarget({
-                          kind: 'collection',
-                          id: col.id,
-                          title: col.title,
-                        })
-                      }>
-                      그룹 삭제
-                    </ContextMenu.Item>
-                  </ContextMenu.Content>
-                </ContextMenu.Portal>
-              </ContextMenu.Root>
-            ))}
+                        setDropCollectionId(col.id);
+                      }}
+                      onDragLeave={() => setDropCollectionId(null)}
+                      onDrop={e => onDropTabToCollection(e, col.id)}>
+                      <div className="col-head">
+                        <h3 className="col-title">{col.title}</h3>
+                      </div>
+                      <ul className="link-list">
+                        <AnimatePresence initial={false}>
+                          {col.links.slice(0, 8).map(link => {
+                            const icon = getFaviconSrc(link);
+                            return (
+                              <motion.li
+                                key={link.id}
+                                layout
+                                initial={{ opacity: 0, y: -6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -6 }}
+                                transition={{ duration: 0.16 }}>
+                                <ContextMenu.Root
+                                  onOpenChange={open =>
+                                    setActiveContext(prev =>
+                                      open
+                                        ? { kind: 'bookmark', id: link.id }
+                                        : prev?.kind === 'bookmark' && prev.id === link.id
+                                          ? null
+                                          : prev,
+                                    )
+                                  }>
+                                  <ContextMenu.Trigger asChild>
+                                    <button
+                                      className={`link-row ${
+                                        activeContext?.kind === 'bookmark' && activeContext.id === link.id
+                                          ? 'context-active'
+                                          : ''
+                                      }`}
+                                      onClick={() => openLink(link.url)}
+                                      title={link.url || ''}>
+                                      <img
+                                        className="fav"
+                                        src={icon}
+                                        alt=""
+                                        onError={() => onFaviconError(link)}
+                                        onLoad={e =>
+                                          rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)
+                                        }
+                                      />
+                                      <span className="link-main">
+                                        <span className="link-title">{link.title || link.url}</span>
+                                        <span className="link-domain">{getDomain(link.url)}</span>
+                                      </span>
+                                    </button>
+                                  </ContextMenu.Trigger>
+                                  <ContextMenu.Portal>
+                                    <ContextMenu.Content className="col-context-menu" align="end" sideOffset={4}>
+                                      <div className="col-context-label">
+                                        북마크 메뉴 · {link.title || getDomain(link.url) || 'Untitled'}
+                                      </div>
+                                      <ContextMenu.Separator className="col-context-separator" />
+                                      <ContextMenu.Item
+                                        className="col-context-item"
+                                        onSelect={() => void openLink(link.url)}>
+                                        새 탭에서 열기
+                                      </ContextMenu.Item>
+                                      <ContextMenu.Item
+                                        className="col-context-item"
+                                        onSelect={() => void copyLink(link.url)}>
+                                        링크 복사
+                                      </ContextMenu.Item>
+                                      <ContextMenu.Separator className="col-context-separator" />
+                                      <ContextMenu.Item
+                                        className="col-context-item col-context-item-destructive"
+                                        onSelect={() =>
+                                          setDeleteTarget({
+                                            kind: 'bookmark',
+                                            id: link.id,
+                                            title: link.title || link.url || 'Untitled',
+                                            url: link.url,
+                                          })
+                                        }>
+                                        북마크 삭제
+                                      </ContextMenu.Item>
+                                    </ContextMenu.Content>
+                                  </ContextMenu.Portal>
+                                </ContextMenu.Root>
+                              </motion.li>
+                            );
+                          })}
+                        </AnimatePresence>
+                      </ul>
+                    </motion.article>
+                  </ContextMenu.Trigger>
+                  <ContextMenu.Portal>
+                    <ContextMenu.Content className="col-context-menu" alignOffset={-4}>
+                      <div className="col-context-label">그룹 메뉴 · {col.title}</div>
+                      <ContextMenu.Separator className="col-context-separator" />
+                      <ContextMenu.Item
+                        className="col-context-item"
+                        onSelect={() => void openCollection(col.id, 'group')}>
+                        그룹 열기
+                      </ContextMenu.Item>
+                      <ContextMenu.Item
+                        className="col-context-item"
+                        onSelect={() => void openCollection(col.id, 'new-window')}>
+                        새 창 열기
+                      </ContextMenu.Item>
+                      <ContextMenu.Separator className="col-context-separator" />
+                      <ContextMenu.Item
+                        className="col-context-item col-context-item-destructive"
+                        onSelect={() =>
+                          setDeleteTarget({
+                            kind: 'collection',
+                            id: col.id,
+                            title: col.title,
+                          })
+                        }>
+                        그룹 삭제
+                      </ContextMenu.Item>
+                    </ContextMenu.Content>
+                  </ContextMenu.Portal>
+                </ContextMenu.Root>
+              ))}
+            </AnimatePresence>
           </div>
         </section>
 
