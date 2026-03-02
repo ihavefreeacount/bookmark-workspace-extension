@@ -19,10 +19,6 @@ html {
   background-color: var(--bg-canvas);
 }
 
-body {
-  overflow-y: scroll;
-}
-
 .nt-root {
   min-height: 100vh;
   padding: 18px;
