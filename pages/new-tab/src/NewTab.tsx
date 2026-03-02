@@ -124,6 +124,7 @@ const NewTab = () => {
   const [workspaceFlyout, setWorkspaceFlyout] = useState<WorkspaceFlyout | null>(null);
   const openFlyoutTimerRef = useRef<number | null>(null);
   const closeFlyoutTimerRef = useRef<number | null>(null);
+  const htmlScrollbarGutterBeforeCmdkRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     const next = await loadTree();
@@ -237,6 +238,22 @@ const NewTab = () => {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
+
+  useEffect(() => {
+    const htmlEl = document.documentElement;
+    if (commandOpen) {
+      if (htmlScrollbarGutterBeforeCmdkRef.current === null) {
+        htmlScrollbarGutterBeforeCmdkRef.current = htmlEl.style.scrollbarGutter;
+      }
+      htmlEl.style.scrollbarGutter = 'unset';
+      return;
+    }
+
+    if (htmlScrollbarGutterBeforeCmdkRef.current !== null) {
+      htmlEl.style.scrollbarGutter = htmlScrollbarGutterBeforeCmdkRef.current;
+      htmlScrollbarGutterBeforeCmdkRef.current = null;
+    }
+  }, [commandOpen]);
 
   const workspaces = useMemo(() => (tree?.children || []).filter(isFolder), [tree]);
   const orderedWorkspaces = useMemo(() => {
