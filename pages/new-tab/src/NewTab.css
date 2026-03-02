@@ -14,6 +14,11 @@
   --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.06);
 }
 
+html {
+  scrollbar-gutter: stable both-edges;
+  background-color: var(--bg-canvas);
+}
+
 .nt-root {
   min-height: 100vh;
   padding: 18px;
