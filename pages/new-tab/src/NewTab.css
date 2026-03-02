@@ -467,6 +467,10 @@ button.active {
   will-change: transform;
 }
 
+.col-card.inline-input-card.is-hiding {
+  visibility: hidden;
+}
+
 .col-inline-input {
   width: 100%;
   border: none;

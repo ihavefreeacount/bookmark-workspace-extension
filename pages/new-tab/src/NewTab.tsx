@@ -104,6 +104,7 @@ const NewTab = () => {
   const [collectionInlineOpen, setCollectionInlineOpen] = useState(false);
   const [collectionInlineName, setCollectionInlineName] = useState('');
   const [collectionInlineBusy, setCollectionInlineBusy] = useState(false);
+  const [collectionInlineHideDuringExit, setCollectionInlineHideDuringExit] = useState(false);
   const collectionInlineRef = useRef<HTMLInputElement | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -325,10 +326,21 @@ const NewTab = () => {
   const openCollectionInlineInput = () => {
     if (!workspaceId) return;
     setCollectionInlineName('');
+    setCollectionInlineHideDuringExit(false);
     setCollectionInlineOpen(true);
   };
 
-  const closeCollectionInlineInput = () => {
+  const closeCollectionInlineInput = (options?: { hideDuringExit?: boolean }) => {
+    if (options?.hideDuringExit) {
+      setCollectionInlineHideDuringExit(true);
+      requestAnimationFrame(() => {
+        setCollectionInlineOpen(false);
+        setCollectionInlineName('');
+        setCollectionInlineBusy(false);
+      });
+      return;
+    }
+    setCollectionInlineHideDuringExit(false);
     setCollectionInlineOpen(false);
     setCollectionInlineName('');
     setCollectionInlineBusy(false);
@@ -338,7 +350,7 @@ const NewTab = () => {
     if (collectionInlineBusy) return;
     const name = collectionInlineName.trim();
     if (!name || !workspaceId) {
-      closeCollectionInlineInput();
+      closeCollectionInlineInput({ hideDuringExit: true });
       return;
     }
 
@@ -827,7 +839,7 @@ const NewTab = () => {
               {collectionInlineOpen && (
                 <motion.article
                   key="inline-collection-input"
-                  className="col-card inline-input-card"
+                  className={`col-card inline-input-card ${collectionInlineHideDuringExit ? 'is-hiding' : ''}`}
                   layout
                   initial={{ scale: 0.985, y: -8 }}
                   animate={{ scale: 1, y: 0 }}
@@ -847,7 +859,7 @@ const NewTab = () => {
                           void submitCollectionInlineInput();
                         } else if (e.key === 'Escape') {
                           e.preventDefault();
-                          closeCollectionInlineInput();
+                          closeCollectionInlineInput({ hideDuringExit: true });
                         }
                       }}
                       onBlur={() => {
