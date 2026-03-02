@@ -1220,6 +1220,7 @@ const NewTab = () => {
         className="cmdk-dialog"
         overlayClassName="cmdk-overlay"
         label="커맨드 팔레트"
+        modal={false}
         open={commandOpen}
         onOpenChange={open => {
           setCommandOpen(open);
