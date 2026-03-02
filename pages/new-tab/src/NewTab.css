@@ -149,6 +149,7 @@ button.active {
   grid-template-columns: 280px 1fr 340px;
   gap: 12px;
   position: relative;
+  align-items: start;
   transition: grid-template-columns 180ms ease;
 }
 
@@ -180,6 +181,7 @@ button.active {
   padding: 8px;
   position: sticky;
   top: 64px;
+  height: calc(100vh - 82px);
   max-height: calc(100vh - 82px);
 }
 
@@ -189,6 +191,7 @@ button.active {
   box-shadow: none;
   position: sticky;
   top: 64px;
+  height: calc(100vh - 82px);
   max-height: calc(100vh - 82px);
 }
 
