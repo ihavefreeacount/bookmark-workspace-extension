@@ -19,6 +19,17 @@ html {
   background-color: var(--bg-canvas);
 }
 
+body {
+  margin: 0;
+  margin-right: 0 !important;
+  padding-right: 0 !important;
+}
+
+html {
+  margin-right: 0 !important;
+  padding-right: 0 !important;
+}
+
 .nt-root {
   min-height: 100vh;
   padding: 18px;

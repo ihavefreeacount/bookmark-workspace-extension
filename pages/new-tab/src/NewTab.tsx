@@ -240,16 +240,21 @@ const NewTab = () => {
   }, []);
 
   useEffect(() => {
+    const html = document.documentElement;
     const body = document.body;
-    const enforceNoMarginRight = () => {
-      if (body.style.marginRight && body.style.marginRight !== '0px') {
-        body.style.marginRight = '0px';
-      }
+    const enforceNoHorizontalCompensation = () => {
+      if (html.style.marginRight && html.style.marginRight !== '0px') html.style.marginRight = '0px';
+      if (body.style.marginRight && body.style.marginRight !== '0px') body.style.marginRight = '0px';
+      if (html.style.paddingRight && html.style.paddingRight !== '0px') html.style.paddingRight = '0px';
+      if (body.style.paddingRight && body.style.paddingRight !== '0px') body.style.paddingRight = '0px';
     };
-    enforceNoMarginRight();
-    const observer = new MutationObserver(enforceNoMarginRight);
+    enforceNoHorizontalCompensation();
+    const observer = new MutationObserver(enforceNoHorizontalCompensation);
+    observer.observe(html, { attributes: true, attributeFilter: ['style'] });
     observer.observe(body, { attributes: true, attributeFilter: ['style'] });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+    };
   }, []);
 
   useEffect(() => {
