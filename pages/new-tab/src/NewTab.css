@@ -211,6 +211,10 @@ button.active {
   transition-delay: 0ms;
 }
 
+.layout.left-collapsed .panel.left {
+  overflow: hidden;
+}
+
 .workspace-list,
 .tab-list,
 .link-list {
