@@ -698,13 +698,14 @@ const NewTab = () => {
                   key={ws.id}
                   value={ws.id}
                   className={`workspace-reorder-item ${draggingWorkspaceId === ws.id ? 'dragging' : ''}`}
+                  layout={draggingWorkspaceId ? 'position' : false}
                   whileDrag={{
                     scale: 1,
                     background: 'rgba(255, 255, 255, 0.8)',
                     backdropFilter: 'blur(10px)',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
                   }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  transition={draggingWorkspaceId ? { type: 'spring', stiffness: 400, damping: 30 } : { duration: 0 }}
                   onDragStart={() => {
                     setDraggingWorkspaceId(ws.id);
                     setWorkspaceFlyout(null);
