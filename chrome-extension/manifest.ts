@@ -9,7 +9,7 @@ const manifest = {
   name: 'Bookmark Workspace',
   version: packageJson.version,
   description: 'New-tab workspace manager with bookmarks as source of truth.',
-  permissions: ['bookmarks', 'tabs', 'tabGroups', 'storage'],
+  permissions: ['bookmarks', 'tabs', 'tabGroups', 'storage', 'favicon'],
   options_page: 'options/index.html',
   background: {
     service_worker: 'background.js',

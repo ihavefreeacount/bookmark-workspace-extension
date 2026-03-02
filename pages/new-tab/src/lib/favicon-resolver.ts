@@ -4,8 +4,6 @@ const FAILURE_TTL_MS = 10 * 60 * 1000;
 const MAX_ENTRIES = 500;
 const DEFAULT_SIZE = 32;
 
-type FaviconProvider = 'none' | 'chain' | 'raycast' | 'google' | 'duckduckgo' | 'direct';
-
 const FALLBACK_FAVICON =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
@@ -18,19 +16,12 @@ const sanitizeUrl = (input: string) => {
   return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
 };
 
-const getProvider = (): FaviconProvider => {
-  const raw = String(import.meta.env.VITE_FAVICON_PROVIDER || 'google').toLowerCase();
-  if (
-    raw === 'none' ||
-    raw === 'raycast' ||
-    raw === 'google' ||
-    raw === 'duckduckgo' ||
-    raw === 'direct' ||
-    raw === 'chain'
-  ) {
-    return raw;
-  }
-  return 'google';
+const getChromeFaviconUrl = (pageUrl: string, size = DEFAULT_SIZE) => {
+  if (typeof chrome === 'undefined' || !chrome.runtime?.getURL) return '';
+  const url = new URL(chrome.runtime.getURL('/_favicon/'));
+  url.searchParams.set('pageUrl', pageUrl);
+  url.searchParams.set('size', String(size));
+  return url.toString();
 };
 
 type CacheValue = {
@@ -84,22 +75,12 @@ export const getFallbackFavicon = () => FALLBACK_FAVICON;
 export const getFaviconCandidates = (url?: string): string[] => {
   try {
     if (!url) return [FALLBACK_FAVICON];
-    const domain = getDomain(url);
-    if (!domain) return [FALLBACK_FAVICON];
+    const pageUrl = sanitizeUrl(url);
+    if (!pageUrl) return [FALLBACK_FAVICON];
 
-    const encoded = encodeURIComponent(domain);
-    const direct = [`https://${domain}/favicon.ico`, `https://${domain}/apple-touch-icon.png`];
-    const google = [`https://www.google.com/s2/favicons?domain=${encoded}&sz=${DEFAULT_SIZE}`];
-    const duck = [`https://icons.duckduckgo.com/ip3/${encoded}.ico`];
-    const raycast = [`https://api.ray.so/favicon?url=${encoded}&size=${DEFAULT_SIZE}`];
-
-    const provider = getProvider();
-    if (provider === 'none') return [FALLBACK_FAVICON];
-    if (provider === 'direct') return direct;
-    if (provider === 'google') return google;
-    if (provider === 'duckduckgo') return duck;
-    if (provider === 'raycast') return raycast;
-    return [...direct, ...google, ...duck, ...raycast];
+    const chromeFavicon = getChromeFaviconUrl(pageUrl, DEFAULT_SIZE);
+    if (!chromeFavicon) return [FALLBACK_FAVICON];
+    return [chromeFavicon, FALLBACK_FAVICON];
   } catch {
     return [FALLBACK_FAVICON];
   }

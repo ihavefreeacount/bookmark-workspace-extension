@@ -588,7 +588,7 @@ const NewTab = () => {
     setFaviconIndexById(prev => {
       const next = { ...prev };
       const nextIndex = (next[link.id] ?? 0) + 1;
-      if (nextIndex > Math.max(0, candidates.length - 1)) {
+      if (nextIndex >= Math.max(0, candidates.length - 1)) {
         rememberFaviconFailure(link.url);
       }
       next[link.id] = Math.min(nextIndex, Math.max(0, candidates.length - 1));
