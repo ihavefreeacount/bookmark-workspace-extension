@@ -4,14 +4,33 @@ const FAILURE_TTL_MS = 10 * 60 * 1000;
 const MAX_ENTRIES = 500;
 const DEFAULT_SIZE = 32;
 
-type FaviconProvider = 'chain' | 'raycast' | 'google' | 'duckduckgo' | 'direct';
+type FaviconProvider = 'none' | 'chain' | 'raycast' | 'google' | 'duckduckgo' | 'direct';
+
+const FALLBACK_FAVICON =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M4.5 12h15M12 4.5c2.2 2.4 2.2 12.6 0 15M12 4.5c-2.2 2.4-2.2 12.6 0 15"/></svg>`,
+  );
+
+const sanitizeUrl = (input: string) => {
+  const raw = input.trim();
+  if (!raw) return '';
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+};
 
 const getProvider = (): FaviconProvider => {
-  const raw = String(import.meta.env.VITE_FAVICON_PROVIDER || 'chain').toLowerCase();
-  if (raw === 'raycast' || raw === 'google' || raw === 'duckduckgo' || raw === 'direct' || raw === 'chain') {
+  const raw = String(import.meta.env.VITE_FAVICON_PROVIDER || 'google').toLowerCase();
+  if (
+    raw === 'none' ||
+    raw === 'raycast' ||
+    raw === 'google' ||
+    raw === 'duckduckgo' ||
+    raw === 'direct' ||
+    raw === 'chain'
+  ) {
     return raw;
   }
-  return 'chain';
+  return 'google';
 };
 
 type CacheValue = {
@@ -54,29 +73,36 @@ const isExpired = (entry: CacheValue) => {
 export const getDomain = (url?: string) => {
   if (!url) return '';
   try {
-    return new URL(url).hostname.replace(/^www\./, '');
+    return new URL(sanitizeUrl(url)).hostname.replace(/^www\./, '');
   } catch {
     return '';
   }
 };
 
+export const getFallbackFavicon = () => FALLBACK_FAVICON;
+
 export const getFaviconCandidates = (url?: string): string[] => {
-  if (!url) return [];
-  const domain = getDomain(url);
-  if (!domain) return [];
+  try {
+    if (!url) return [FALLBACK_FAVICON];
+    const domain = getDomain(url);
+    if (!domain) return [FALLBACK_FAVICON];
 
-  const encoded = encodeURIComponent(domain);
-  const direct = [`https://${domain}/favicon.ico`, `https://${domain}/apple-touch-icon.png`];
-  const google = [`https://www.google.com/s2/favicons?domain=${encoded}&sz=${DEFAULT_SIZE}`];
-  const duck = [`https://icons.duckduckgo.com/ip3/${encoded}.ico`];
-  const raycast = [`https://api.ray.so/favicon?url=${encoded}&size=${DEFAULT_SIZE}`];
+    const encoded = encodeURIComponent(domain);
+    const direct = [`https://${domain}/favicon.ico`, `https://${domain}/apple-touch-icon.png`];
+    const google = [`https://www.google.com/s2/favicons?domain=${encoded}&sz=${DEFAULT_SIZE}`];
+    const duck = [`https://icons.duckduckgo.com/ip3/${encoded}.ico`];
+    const raycast = [`https://api.ray.so/favicon?url=${encoded}&size=${DEFAULT_SIZE}`];
 
-  const provider = getProvider();
-  if (provider === 'direct') return direct;
-  if (provider === 'google') return google;
-  if (provider === 'duckduckgo') return duck;
-  if (provider === 'raycast') return raycast;
-  return [...direct, ...google, ...duck, ...raycast];
+    const provider = getProvider();
+    if (provider === 'none') return [FALLBACK_FAVICON];
+    if (provider === 'direct') return direct;
+    if (provider === 'google') return google;
+    if (provider === 'duckduckgo') return duck;
+    if (provider === 'raycast') return raycast;
+    return [...direct, ...google, ...duck, ...raycast];
+  } catch {
+    return [FALLBACK_FAVICON];
+  }
 };
 
 export const getCachedFavicon = (url?: string): string | null => {

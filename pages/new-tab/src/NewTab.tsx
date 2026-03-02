@@ -1,9 +1,11 @@
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import {
+  getFallbackFavicon,
   getCachedFavicon,
   getDomain,
   getFaviconCandidates,
+  isNegativeFaviconCached,
   rememberFavicon,
   rememberFaviconFailure,
 } from '@src/lib/favicon-resolver';
@@ -572,11 +574,12 @@ const NewTab = () => {
   };
 
   const getFaviconSrc = (link: BookmarkNode) => {
+    if (isNegativeFaviconCached(link.url)) return getFallbackFavicon();
     const candidates = getFaviconCandidates(link.url);
     const cached = getCachedFavicon(link.url);
     const index = faviconIndexById[link.id] ?? 0;
     if (cached) return cached;
-    return candidates[index] || candidates[0] || '';
+    return candidates[index] || candidates[0] || getFallbackFavicon();
   };
 
   const onFaviconError = (link: BookmarkNode) => {
