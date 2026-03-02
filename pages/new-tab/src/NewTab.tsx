@@ -363,7 +363,7 @@ const NewTab = () => {
       seen.add(tab.url);
       await chrome.bookmarks.create({ parentId: collection.id, title: tab.title || tab.url, url: tab.url });
       if (tab.favIconUrl) {
-        rememberFavicon(tab.url, tab.favIconUrl, 'tab-favicon');
+        rememberFavicon(tab.url, tab.favIconUrl);
       }
       count += 1;
     }
@@ -609,7 +609,7 @@ const NewTab = () => {
 
     await chrome.bookmarks.create({ parentId: collectionId, title: payload.title || payload.url, url: payload.url });
     if (payload.favIconUrl) {
-      rememberFavicon(payload.url, payload.favIconUrl, 'tab-favicon');
+      rememberFavicon(payload.url, payload.favIconUrl);
     }
     setToast('링크 저장됨');
     await refresh();

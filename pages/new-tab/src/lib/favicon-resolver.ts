@@ -28,7 +28,6 @@ type CacheValue = {
   src: string;
   at: number;
   ok: boolean;
-  provider?: string;
 };
 
 type CacheMap = Record<string, CacheValue>;
@@ -116,20 +115,20 @@ export const isNegativeFaviconCached = (url?: string): boolean => {
   return !entry.ok;
 };
 
-export const rememberFavicon = (url: string | undefined, src: string, provider = 'unknown') => {
+export const rememberFavicon = (url: string | undefined, src: string) => {
   const domain = getDomain(url);
   if (!domain || !src) return;
 
   const next = readCache();
-  next[domain] = { src, at: Date.now(), ok: true, provider };
+  next[domain] = { src, at: Date.now(), ok: true };
   writeCache(pruneCache(next));
 };
 
-export const rememberFaviconFailure = (url?: string, provider = 'chain-exhausted') => {
+export const rememberFaviconFailure = (url?: string) => {
   const domain = getDomain(url);
   if (!domain) return;
 
   const next = readCache();
-  next[domain] = { src: '', at: Date.now(), ok: false, provider };
+  next[domain] = { src: '', at: Date.now(), ok: false };
   writeCache(pruneCache(next));
 };
