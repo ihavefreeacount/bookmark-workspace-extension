@@ -193,6 +193,7 @@ button.active {
   top: 62px;
   height: calc(100vh - 82px);
   max-height: calc(100vh - 82px);
+  min-width: 0;
 }
 
 .panel-content {
@@ -525,6 +526,7 @@ button.active {
 
 .tab-list li {
   cursor: grab;
+  min-width: 0;
 }
 
 .tab-list li.active {
@@ -584,6 +586,16 @@ button.active {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tab-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  line-height: 1.3;
+  max-height: calc(1.3em * 2);
+  word-break: break-word;
 }
 
 .link-domain,
