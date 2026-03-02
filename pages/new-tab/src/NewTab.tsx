@@ -759,7 +759,18 @@ const NewTab = () => {
                             }`}
                             onMouseEnter={e => scheduleWorkspaceFlyoutOpen(ws, e.currentTarget)}
                             onMouseLeave={scheduleWorkspaceFlyoutClose}
-                            onClick={() => setWorkspaceId(ws.id)}
+                            onClick={() => {
+                              setWorkspaceFlyout(null);
+                              if (openFlyoutTimerRef.current) {
+                                window.clearTimeout(openFlyoutTimerRef.current);
+                                openFlyoutTimerRef.current = null;
+                              }
+                              if (closeFlyoutTimerRef.current) {
+                                window.clearTimeout(closeFlyoutTimerRef.current);
+                                closeFlyoutTimerRef.current = null;
+                              }
+                              setWorkspaceId(ws.id);
+                            }}
                             onDragOver={e => {
                               if (dragKind !== 'collection') return;
                               e.preventDefault();
