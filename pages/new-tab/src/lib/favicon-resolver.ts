@@ -9,7 +9,7 @@ type FaviconProvider = 'none' | 'chain' | 'raycast' | 'google' | 'duckduckgo' | 
 const FALLBACK_FAVICON =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M4.5 12h15M12 4.5c2.2 2.4 2.2 12.6 0 15M12 4.5c-2.2 2.4-2.2 12.6 0 15"/></svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l1.5-1.5a5 5 0 0 0-7.07-7.07l-.86.86"/><path d="M14 11a5 5 0 0 0-7.54-.54l-1.5 1.5a5 5 0 1 0 7.07 7.07l.86-.86"/></svg>`,
   );
 
 const sanitizeUrl = (input: string) => {

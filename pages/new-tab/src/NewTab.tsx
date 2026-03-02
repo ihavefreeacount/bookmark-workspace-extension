@@ -10,6 +10,7 @@ import {
   rememberFaviconFailure,
 } from '@src/lib/favicon-resolver';
 import { Command } from 'cmdk';
+import { Globe, Link2, PanelLeft, PanelRight, Plus, Search } from 'lucide-react';
 import { AnimatePresence, motion, Reorder } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -634,61 +635,26 @@ const NewTab = () => {
             title={leftCollapsed ? '사이드바 열기' : '사이드바 닫기'}
             aria-label={leftCollapsed ? '사이드바 열기' : '사이드바 닫기'}
             aria-expanded={!leftCollapsed}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <rect
-                x="4.5"
-                y="5.5"
-                width="15"
-                height="13"
-                rx="2.2"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-              />
-              <path d="M9.5 6.8v10.4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
+            <PanelLeft size={18} aria-hidden="true" />
           </button>
         </div>
         <div className="header-right-actions">
           <button className="tool-btn" onClick={openCollectionInlineInput} title="컬렉션 추가" aria-label="컬렉션 추가">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M12 6.5v11M6.5 12h11"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-            </svg>
+            <Plus size={18} aria-hidden="true" />
           </button>
           <button
             className="tool-btn"
             onClick={() => setCommandOpen(true)}
             title="검색 / 커맨드 (⌘K)"
             aria-label="검색 / 커맨드">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
-              <path d="M16.2 16.2L21 21" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
+            <Search size={18} aria-hidden="true" />
           </button>
           <button
             className="tool-btn"
             onClick={() => setRightCollapsed(v => !v)}
             title={rightCollapsed ? '추가 액션 열기' : '추가 액션 닫기'}
             aria-label="추가 액션">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <rect
-                x="4.5"
-                y="5.5"
-                width="15"
-                height="13"
-                rx="2.2"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-              />
-              <path d="M14.5 6.8v10.4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
+            <PanelRight size={18} aria-hidden="true" />
           </button>
         </div>
       </header>
@@ -844,15 +810,7 @@ const NewTab = () => {
                   onClick={openWorkspaceInlineInput}
                   title="스페이스 추가"
                   aria-label="스페이스 추가">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M12 6.5v11M6.5 12h11"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                    />
-                  </svg>
+                  <Plus size={14} aria-hidden="true" />
                   <span>스페이스 추가</span>
                 </button>
               </li>
@@ -942,6 +900,7 @@ const NewTab = () => {
                         <AnimatePresence initial={false}>
                           {col.links.slice(0, 8).map((link, linkIndex) => {
                             const icon = getFaviconSrc(link);
+                            const isFallbackIcon = icon === getFallbackFavicon();
                             return (
                               <motion.li
                                 key={link.id}
@@ -961,15 +920,21 @@ const NewTab = () => {
                                   <ContextMenu.Trigger asChild>
                                     {editingBookmark?.id === link.id ? (
                                       <div className="bookmark-item is-editing">
-                                        <img
-                                          className="fav"
-                                          src={icon}
-                                          alt=""
-                                          onError={() => onFaviconError(link)}
-                                          onLoad={e =>
-                                            rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)
-                                          }
-                                        />
+                                        {isFallbackIcon ? (
+                                          <span className="fav-fallback" aria-hidden>
+                                            <Link2 size={14} />
+                                          </span>
+                                        ) : (
+                                          <img
+                                            className="fav"
+                                            src={icon}
+                                            alt=""
+                                            onError={() => onFaviconError(link)}
+                                            onLoad={e =>
+                                              rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)
+                                            }
+                                          />
+                                        )}
                                         <span className="link-main">
                                           <input
                                             ref={editingTitleRef}
@@ -1038,15 +1003,21 @@ const NewTab = () => {
                                         }`}
                                         onClick={() => openLink(link.url)}
                                         title={link.url || ''}>
-                                        <img
-                                          className="fav"
-                                          src={icon}
-                                          alt=""
-                                          onError={() => onFaviconError(link)}
-                                          onLoad={e =>
-                                            rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)
-                                          }
-                                        />
+                                        {isFallbackIcon ? (
+                                          <span className="fav-fallback" aria-hidden>
+                                            <Link2 size={14} />
+                                          </span>
+                                        ) : (
+                                          <img
+                                            className="fav"
+                                            src={icon}
+                                            alt=""
+                                            onError={() => onFaviconError(link)}
+                                            onLoad={e =>
+                                              rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)
+                                            }
+                                          />
+                                        )}
                                         <span className="link-main">
                                           <span className="link-title">{link.title || link.url}</span>
                                           <span className="link-domain">{getDomain(link.url)}</span>
@@ -1135,16 +1106,7 @@ const NewTab = () => {
         <aside className="panel right">
           <div className="panel-content">
             <div className="panel-section-header">
-              <svg className="panel-section-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="1.6" />
-                <path
-                  d="M4.4 12h15.2M12 4.4c2.4 2.4 2.4 12.8 0 15.2M12 4.4c-2.4 2.4-2.4 12.8 0 15.2"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <Globe className="panel-section-icon" size={15} aria-hidden="true" />
               <strong>현재 열려있는 탭</strong>
             </div>
             <ul className="tab-list">
@@ -1165,7 +1127,13 @@ const NewTab = () => {
                     setDropWorkspaceId(null);
                     setDragKind(null);
                   }}>
-                  <img className="fav" src={getFaviconCandidates(tab.url)[0]} alt="" />
+                  {getFaviconCandidates(tab.url)[0] === getFallbackFavicon() ? (
+                    <span className="fav-fallback" aria-hidden>
+                      <Link2 size={14} />
+                    </span>
+                  ) : (
+                    <img className="fav" src={getFaviconCandidates(tab.url)[0]} alt="" />
+                  )}
                   <div>
                     <div className="tab-title">{tab.title || tab.url}</div>
                     <div className="tab-domain">{getDomain(tab.url)}</div>
