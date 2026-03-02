@@ -211,6 +211,11 @@ const NewTab = () => {
   }, [workspaceId]);
 
   useEffect(() => {
+    if (!workspaceId) return;
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [workspaceId]);
+
+  useEffect(() => {
     window.localStorage.setItem(LS_LEFT_COLLAPSED, leftCollapsed ? '1' : '0');
   }, [leftCollapsed]);
 
