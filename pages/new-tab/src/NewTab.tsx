@@ -240,6 +240,19 @@ const NewTab = () => {
   }, []);
 
   useEffect(() => {
+    const body = document.body;
+    const enforceNoMarginRight = () => {
+      if (body.style.marginRight && body.style.marginRight !== '0px') {
+        body.style.marginRight = '0px';
+      }
+    };
+    enforceNoMarginRight();
+    const observer = new MutationObserver(enforceNoMarginRight);
+    observer.observe(body, { attributes: true, attributeFilter: ['style'] });
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     const htmlEl = document.documentElement;
     if (commandOpen) {
       if (htmlScrollbarGutterBeforeCmdkRef.current === null) {
@@ -713,7 +726,7 @@ const NewTab = () => {
                     setDraggingWorkspaceId(null);
                     void persistWorkspaceOrder();
                   }}>
-                  <ContextMenu.Root>
+                  <ContextMenu.Root modal={false}>
                     <ContextMenu.Trigger asChild>
                       <div>
                         {editingWorkspaceId === ws.id ? (
@@ -876,6 +889,7 @@ const NewTab = () => {
             <AnimatePresence key={`collections-${workspaceId || 'all'}`} initial={false}>
               {collections.map(col => (
                 <ContextMenu.Root
+                  modal={false}
                   key={col.id}
                   onOpenChange={open =>
                     setActiveContext(prev =>
@@ -925,6 +939,7 @@ const NewTab = () => {
                                 exit={{ opacity: 0, y: -6 }}
                                 transition={{ duration: 0.16 }}>
                                 <ContextMenu.Root
+                                  modal={false}
                                   onOpenChange={open =>
                                     setActiveContext(prev =>
                                       open
