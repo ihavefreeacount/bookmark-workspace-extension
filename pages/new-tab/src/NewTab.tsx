@@ -574,27 +574,30 @@ const NewTab = () => {
     await refresh();
   };
 
-  const getFaviconSrc = (link: BookmarkNode) => {
-    if (isNegativeFaviconCached(link.url)) return getFallbackFavicon();
-    const candidates = getFaviconCandidates(link.url);
-    const cached = getCachedFavicon(link.url);
-    const index = faviconIndexById[link.id] ?? 0;
+  const getFaviconSrcByKey = (key: string, url?: string) => {
+    if (isNegativeFaviconCached(url)) return getFallbackFavicon();
+    const candidates = getFaviconCandidates(url);
+    const cached = getCachedFavicon(url);
+    const index = faviconIndexById[key] ?? 0;
     if (cached) return cached;
     return candidates[index] || candidates[0] || getFallbackFavicon();
   };
 
-  const onFaviconError = (link: BookmarkNode) => {
-    const candidates = getFaviconCandidates(link.url);
+  const onFaviconErrorByKey = (key: string, url?: string) => {
+    const candidates = getFaviconCandidates(url);
     setFaviconIndexById(prev => {
       const next = { ...prev };
-      const nextIndex = (next[link.id] ?? 0) + 1;
+      const nextIndex = (next[key] ?? 0) + 1;
       if (nextIndex >= Math.max(0, candidates.length - 1)) {
-        rememberFaviconFailure(link.url);
+        rememberFaviconFailure(url);
       }
-      next[link.id] = Math.min(nextIndex, Math.max(0, candidates.length - 1));
+      next[key] = Math.min(nextIndex, Math.max(0, candidates.length - 1));
       return next;
     });
   };
+
+  const getFaviconSrc = (link: BookmarkNode) => getFaviconSrcByKey(link.id, link.url);
+  const onFaviconError = (link: BookmarkNode) => onFaviconErrorByKey(link.id, link.url);
 
   const onDropTabToCollection = async (e: React.DragEvent, collectionId: string) => {
     e.preventDefault();
@@ -1288,15 +1291,32 @@ const NewTab = () => {
           </Command.Group>
 
           <Command.Group heading="저장된 북마크" className="cmdk-group">
-            {commandLinks.map(link => (
-              <Command.Item
-                key={link.key}
-                className="cmdk-item"
-                value={`${link.title} ${link.url || ''} ${link.domain} ${link.workspace} ${link.collection}`}
-                onSelect={() => runCommand(() => openLink(link.url))}>
-                {link.title}
-              </Command.Item>
-            ))}
+            {commandLinks.map(link => {
+              const icon = getFaviconSrcByKey(link.key, link.url);
+              const isFallbackIcon = icon === getFallbackFavicon();
+              return (
+                <Command.Item
+                  key={link.key}
+                  className="cmdk-item"
+                  value={`${link.title} ${link.url || ''} ${link.domain} ${link.workspace} ${link.collection}`}
+                  onSelect={() => runCommand(() => openLink(link.url))}>
+                  {isFallbackIcon ? (
+                    <span className="fav-fallback" aria-hidden>
+                      <Link2 size={14} />
+                    </span>
+                  ) : (
+                    <img
+                      className="fav"
+                      src={icon}
+                      alt=""
+                      onError={() => onFaviconErrorByKey(link.key, link.url)}
+                      onLoad={e => rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)}
+                    />
+                  )}
+                  <span className="cmdk-item-text">{link.title}</span>
+                </Command.Item>
+              );
+            })}
           </Command.Group>
         </Command.List>
       </Command.Dialog>

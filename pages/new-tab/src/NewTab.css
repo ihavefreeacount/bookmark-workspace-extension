@@ -849,11 +849,21 @@ button.active {
 }
 
 .cmdk-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   border: none;
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 13px;
   cursor: pointer;
+}
+
+.cmdk-item-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cmdk-item[data-selected='true'] {
