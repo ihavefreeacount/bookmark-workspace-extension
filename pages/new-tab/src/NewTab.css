@@ -180,7 +180,7 @@ button.active {
   box-shadow: none;
   padding: 8px;
   position: sticky;
-  top: 64px;
+  top: 62px;
   height: calc(100vh - 82px);
   max-height: calc(100vh - 82px);
 }
@@ -190,7 +190,7 @@ button.active {
   border-radius: 0;
   box-shadow: none;
   position: sticky;
-  top: 64px;
+  top: 62px;
   height: calc(100vh - 82px);
   max-height: calc(100vh - 82px);
 }
