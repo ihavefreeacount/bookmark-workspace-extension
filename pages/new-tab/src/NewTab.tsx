@@ -124,7 +124,6 @@ const NewTab = () => {
   const [workspaceFlyout, setWorkspaceFlyout] = useState<WorkspaceFlyout | null>(null);
   const openFlyoutTimerRef = useRef<number | null>(null);
   const closeFlyoutTimerRef = useRef<number | null>(null);
-  const htmlScrollbarGutterBeforeCmdkRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     const next = await loadTree();
@@ -238,40 +237,6 @@ const NewTab = () => {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
-
-  useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
-    const enforceNoHorizontalCompensation = () => {
-      if (html.style.marginRight && html.style.marginRight !== '0px') html.style.marginRight = '0px';
-      if (body.style.marginRight && body.style.marginRight !== '0px') body.style.marginRight = '0px';
-      if (html.style.paddingRight && html.style.paddingRight !== '0px') html.style.paddingRight = '0px';
-      if (body.style.paddingRight && body.style.paddingRight !== '0px') body.style.paddingRight = '0px';
-    };
-    enforceNoHorizontalCompensation();
-    const observer = new MutationObserver(enforceNoHorizontalCompensation);
-    observer.observe(html, { attributes: true, attributeFilter: ['style'] });
-    observer.observe(body, { attributes: true, attributeFilter: ['style'] });
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    const htmlEl = document.documentElement;
-    if (commandOpen) {
-      if (htmlScrollbarGutterBeforeCmdkRef.current === null) {
-        htmlScrollbarGutterBeforeCmdkRef.current = htmlEl.style.scrollbarGutter;
-      }
-      htmlEl.style.scrollbarGutter = 'unset';
-      return;
-    }
-
-    if (htmlScrollbarGutterBeforeCmdkRef.current !== null) {
-      htmlEl.style.scrollbarGutter = htmlScrollbarGutterBeforeCmdkRef.current;
-      htmlScrollbarGutterBeforeCmdkRef.current = null;
-    }
-  }, [commandOpen]);
 
   const workspaces = useMemo(() => (tree?.children || []).filter(isFolder), [tree]);
   const orderedWorkspaces = useMemo(() => {
