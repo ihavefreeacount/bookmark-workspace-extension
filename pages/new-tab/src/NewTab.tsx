@@ -745,7 +745,7 @@ const NewTab = () => {
                   key={ws.id}
                   value={ws.id}
                   className={`workspace-reorder-item ${draggingWorkspaceId === ws.id ? 'dragging' : ''}`}
-                  layout={draggingWorkspaceId ? 'position' : false}
+                  layout="position"
                   dragMomentum={false}
                   whileDrag={{
                     scale: 1,
