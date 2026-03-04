@@ -583,17 +583,12 @@ button.active {
   transition: background-color 0.2s ease;
 }
 
-.bookmark-item-inline-add {
-  animation: bookmarkInlineRowActive 0.18s ease-out;
+.bookmark-inline-add-slot {
+  min-height: 64px;
 }
 
-@keyframes bookmarkInlineRowActive {
-  from {
-    background-color: rgba(0, 122, 255, 0);
-  }
-  to {
-    background-color: rgba(0, 122, 255, 0.05);
-  }
+.bookmark-inline-add-form {
+  min-height: 64px;
 }
 
 .fav {
@@ -663,12 +658,14 @@ button.active {
   color: #1c1c1e;
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.3;
 }
 
 .bookmark-edit-input.url {
   color: #8e8e93;
   font-size: 12px;
   font-weight: 400;
+  line-height: 1.3;
   margin-top: 2px;
 }
 
@@ -697,10 +694,13 @@ button.active {
 
 .bookmark-inline-add-title {
   color: #8e8e93;
+  line-height: 1.3;
 }
 
 .bookmark-inline-add-hint {
   color: #8e8e93;
+  font-size: 12px;
+  line-height: 1.3;
   opacity: 0.72;
 }
 

@@ -1141,30 +1141,9 @@ const NewTab = () => {
                               </motion.li>
                             );
                           })}
-                          <motion.li
-                            key={`${col.id}-inline-bookmark`}
-                            layout="position"
-                            variants={{
-                              hidden: {
-                                opacity: 0,
-                              },
-                              visible: {
-                                opacity: 1,
-                                transition: {
-                                  duration: 0.12,
-                                  ease: 'easeOut',
-                                },
-                              },
-                              exit: {
-                                opacity: 0,
-                                transition: { duration: 0.15, ease: 'easeOut' },
-                              },
-                            }}
-                            initial="hidden"
-                            animate="visible"
-                            exit="exit">
+                          <li className="bookmark-inline-add-slot" key={`${col.id}-inline-bookmark`}>
                             {addingBookmarkCollectionId === col.id ? (
-                              <div className="bookmark-item bookmark-item-inline-add is-editing">
+                              <div className="bookmark-item bookmark-inline-add-form is-editing">
                                 <span className="fav-fallback" aria-hidden>
                                   <Plus size={14} />
                                 </span>
@@ -1240,7 +1219,7 @@ const NewTab = () => {
                                 </span>
                               </button>
                             )}
-                          </motion.li>
+                          </li>
                         </AnimatePresence>
                       </ul>
                     </motion.article>
