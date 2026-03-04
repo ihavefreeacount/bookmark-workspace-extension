@@ -738,6 +738,7 @@ const NewTab = () => {
               axis="y"
               values={workspaceOrderIds}
               onReorder={setWorkspaceOrderIds}
+              layoutScroll
               className="workspace-list">
               {orderedWorkspaces.map(ws => (
                 <Reorder.Item
