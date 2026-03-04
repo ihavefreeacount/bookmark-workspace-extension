@@ -583,6 +583,19 @@ button.active {
   transition: background-color 0.2s ease;
 }
 
+.bookmark-item-inline-add {
+  animation: bookmarkInlineRowActive 0.18s ease-out;
+}
+
+@keyframes bookmarkInlineRowActive {
+  from {
+    background-color: rgba(0, 122, 255, 0);
+  }
+  to {
+    background-color: rgba(0, 122, 255, 0.05);
+  }
+}
+
 .fav {
   width: 16px;
   height: 16px;
@@ -642,8 +655,8 @@ button.active {
   border-radius: 4px;
   outline: none;
   box-shadow: none;
-  padding: 2px 6px;
-  margin-left: -6px;
+  padding: 2px 4px;
+  margin-left: -4px;
 }
 
 .bookmark-edit-input.title {
@@ -654,7 +667,7 @@ button.active {
 
 .bookmark-edit-input.url {
   color: #8e8e93;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   margin-top: 2px;
 }
@@ -667,6 +680,36 @@ button.active {
   background: #fff;
   border: 1px solid rgba(0, 122, 255, 0.5);
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.25);
+}
+
+.bookmark-inline-add-trigger {
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: none;
+  outline: none;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.bookmark-inline-add-title {
+  color: #8e8e93;
+}
+
+.bookmark-inline-add-hint {
+  color: #8e8e93;
+  opacity: 0.72;
+}
+
+.bookmark-inline-add-trigger:hover {
+  background: rgba(0, 122, 255, 0.04);
+}
+
+.bookmark-inline-add-trigger:hover .bookmark-inline-add-title {
+  color: #1c1c1e;
 }
 
 .col-context-menu {

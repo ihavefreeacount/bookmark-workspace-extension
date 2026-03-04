@@ -122,6 +122,12 @@ const NewTab = () => {
   const [editingBookmarkBusy, setEditingBookmarkBusy] = useState(false);
   const editingTitleRef = useRef<HTMLInputElement | null>(null);
   const editingUrlRef = useRef<HTMLInputElement | null>(null);
+  const [addingBookmarkCollectionId, setAddingBookmarkCollectionId] = useState<string | null>(null);
+  const [addingBookmarkTitle, setAddingBookmarkTitle] = useState('');
+  const [addingBookmarkUrl, setAddingBookmarkUrl] = useState('');
+  const [addingBookmarkBusy, setAddingBookmarkBusy] = useState(false);
+  const addingBookmarkTitleRef = useRef<HTMLInputElement | null>(null);
+  const addingBookmarkUrlRef = useRef<HTMLInputElement | null>(null);
   const [workspaceFlyout, setWorkspaceFlyout] = useState<WorkspaceFlyout | null>(null);
   const openFlyoutTimerRef = useRef<number | null>(null);
   const closeFlyoutTimerRef = useRef<number | null>(null);
@@ -193,6 +199,13 @@ const NewTab = () => {
       editingTitleRef.current?.select();
     });
   }, [editingBookmark]);
+
+  useEffect(() => {
+    if (!addingBookmarkCollectionId) return;
+    requestAnimationFrame(() => {
+      addingBookmarkTitleRef.current?.focus();
+    });
+  }, [addingBookmarkCollectionId]);
 
   useEffect(() => {
     if (!editingWorkspaceId) return;
@@ -286,6 +299,15 @@ const NewTab = () => {
     }
     return out;
   }, [workspaces]);
+
+  useEffect(() => {
+    if (!addingBookmarkCollectionId) return;
+    if (collections.some(col => col.id === addingBookmarkCollectionId)) return;
+    setAddingBookmarkCollectionId(null);
+    setAddingBookmarkTitle('');
+    setAddingBookmarkUrl('');
+    setAddingBookmarkBusy(false);
+  }, [collections, addingBookmarkCollectionId]);
 
   useEffect(() => {
     setWorkspaceOrderIds(prev => {
@@ -476,6 +498,41 @@ const NewTab = () => {
     await refresh();
     cancelBookmarkEdit();
     setToast('북마크 수정됨');
+  };
+
+  const openBookmarkInlineInput = (collectionId: string) => {
+    setAddingBookmarkCollectionId(collectionId);
+    setAddingBookmarkTitle('');
+    setAddingBookmarkUrl('');
+    setAddingBookmarkBusy(false);
+  };
+
+  const closeBookmarkInlineInput = () => {
+    setAddingBookmarkCollectionId(null);
+    setAddingBookmarkTitle('');
+    setAddingBookmarkUrl('');
+    setAddingBookmarkBusy(false);
+  };
+
+  const submitBookmarkInlineInput = async () => {
+    if (!addingBookmarkCollectionId || addingBookmarkBusy) return;
+    const nextTitle = addingBookmarkTitle.trim();
+    const nextUrl = addingBookmarkUrl.trim();
+
+    if (!nextUrl) {
+      closeBookmarkInlineInput();
+      return;
+    }
+
+    setAddingBookmarkBusy(true);
+    await chrome.bookmarks.create({
+      parentId: addingBookmarkCollectionId,
+      title: nextTitle || nextUrl,
+      url: nextUrl,
+    });
+    await refresh();
+    closeBookmarkInlineInput();
+    setToast('북마크 추가됨');
   };
 
   const scheduleWorkspaceFlyoutOpen = (ws: BookmarkNode, anchorEl: HTMLElement) => {
@@ -1082,6 +1139,106 @@ const NewTab = () => {
                               </motion.li>
                             );
                           })}
+                          <motion.li
+                            key={`${col.id}-inline-bookmark`}
+                            layout="position"
+                            variants={{
+                              hidden: {
+                                opacity: 0,
+                              },
+                              visible: {
+                                opacity: 1,
+                                transition: {
+                                  duration: 0.12,
+                                  ease: 'easeOut',
+                                },
+                              },
+                              exit: {
+                                opacity: 0,
+                                transition: { duration: 0.15, ease: 'easeOut' },
+                              },
+                            }}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit">
+                            {addingBookmarkCollectionId === col.id ? (
+                              <div className="bookmark-item bookmark-item-inline-add is-editing">
+                                <span className="fav-fallback" aria-hidden>
+                                  <Plus size={14} />
+                                </span>
+                                <span className="link-main">
+                                  <input
+                                    ref={addingBookmarkTitleRef}
+                                    className="bookmark-edit-input title inline-add-input"
+                                    value={addingBookmarkTitle}
+                                    onChange={e => setAddingBookmarkTitle(e.currentTarget.value)}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        void submitBookmarkInlineInput();
+                                      } else if (e.key === 'Escape') {
+                                        e.preventDefault();
+                                        closeBookmarkInlineInput();
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      setTimeout(() => {
+                                        const active = document.activeElement;
+                                        if (
+                                          active === addingBookmarkTitleRef.current ||
+                                          active === addingBookmarkUrlRef.current
+                                        )
+                                          return;
+                                        void submitBookmarkInlineInput();
+                                      }, 0);
+                                    }}
+                                    placeholder="북마크 제목"
+                                    disabled={addingBookmarkBusy}
+                                  />
+                                  <input
+                                    ref={addingBookmarkUrlRef}
+                                    className="bookmark-edit-input url inline-add-input"
+                                    value={addingBookmarkUrl}
+                                    onChange={e => setAddingBookmarkUrl(e.currentTarget.value)}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        void submitBookmarkInlineInput();
+                                      } else if (e.key === 'Escape') {
+                                        e.preventDefault();
+                                        closeBookmarkInlineInput();
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      setTimeout(() => {
+                                        const active = document.activeElement;
+                                        if (
+                                          active === addingBookmarkTitleRef.current ||
+                                          active === addingBookmarkUrlRef.current
+                                        )
+                                          return;
+                                        void submitBookmarkInlineInput();
+                                      }, 0);
+                                    }}
+                                    placeholder="https://"
+                                    disabled={addingBookmarkBusy}
+                                  />
+                                </span>
+                              </div>
+                            ) : (
+                              <button
+                                className="bookmark-item bookmark-inline-add-trigger"
+                                onClick={() => openBookmarkInlineInput(col.id)}>
+                                <span className="fav-fallback" aria-hidden>
+                                  <Plus size={14} />
+                                </span>
+                                <span className="link-main">
+                                  <span className="link-title bookmark-inline-add-title">새 북마크 추가...</span>
+                                  <span className="link-domain bookmark-inline-add-hint">URL 붙여넣기</span>
+                                </span>
+                              </button>
+                            )}
+                          </motion.li>
                         </AnimatePresence>
                       </ul>
                     </motion.article>
