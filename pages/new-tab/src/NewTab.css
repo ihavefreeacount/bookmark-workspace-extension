@@ -612,12 +612,16 @@ button.active {
 .link-main {
   min-width: 0;
   display: grid;
+  grid-template-rows: auto auto;
+  row-gap: 0;
+  align-content: start;
 }
 
 .link-title,
 .tab-title {
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.5;
   color: #4b5563;
   white-space: nowrap;
   overflow: hidden;
@@ -637,6 +641,7 @@ button.active {
 .link-domain,
 .tab-domain {
   font-size: 11px;
+  line-height: 1.5;
   color: #8e8e93;
   white-space: nowrap;
   overflow: hidden;
