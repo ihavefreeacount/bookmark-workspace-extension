@@ -949,11 +949,15 @@ const NewTab = () => {
                       className={`col-card ${dropCollectionId === col.id ? 'drop-target' : ''} ${
                         activeContext?.kind === 'collection' && activeContext.id === col.id ? 'context-active' : ''
                       }`}
-                      layout
-                      initial={{ opacity: 0, scale: 0.985, y: -6 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.96, y: -10 }}
-                      transition={{ duration: 0.2, ease: 'easeOut' }}
+                      layout="position"
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{
+                        y: { duration: 0.2, ease: 'easeOut' },
+                        opacity: { duration: 0.18, ease: 'easeOut' },
+                        layout: { type: 'spring', stiffness: 430, damping: 36 },
+                      }}
                       draggable
                       onDragStart={e => onDragCollectionStart(e, col)}
                       onDragEnd={() => {
