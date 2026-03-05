@@ -450,6 +450,11 @@ const NewTab = () => {
     await chrome.tabs.create({ url, active: true });
   };
 
+  const focusTab = async (tabId?: number) => {
+    if (tabId == null) return;
+    await chrome.tabs.update(tabId, { active: true });
+  };
+
   const copyLink = async (url?: string) => {
     if (!url) return;
     await navigator.clipboard.writeText(url);
@@ -1286,17 +1291,24 @@ const NewTab = () => {
                     setDropWorkspaceId(null);
                     setDragKind(null);
                   }}>
-                  {getFaviconCandidates(tab.url)[0] === getFallbackFavicon() ? (
-                    <span className="fav-fallback" aria-hidden>
-                      <Link2 size={14} />
-                    </span>
-                  ) : (
-                    <img className="fav" src={getFaviconCandidates(tab.url)[0]} alt="" />
-                  )}
-                  <div>
-                    <div className="tab-title">{tab.title || tab.url}</div>
-                    <div className="tab-domain">{getDomain(tab.url)}</div>
-                  </div>
+                  <button
+                    type="button"
+                    className="link-row tab-row-btn"
+                    onClick={() => {
+                      void focusTab(tab.id);
+                    }}>
+                    {getFaviconCandidates(tab.url)[0] === getFallbackFavicon() ? (
+                      <span className="fav-fallback" aria-hidden>
+                        <Link2 size={14} />
+                      </span>
+                    ) : (
+                      <img className="fav" src={getFaviconCandidates(tab.url)[0]} alt="" />
+                    )}
+                    <div>
+                      <div className="tab-title">{tab.title || tab.url}</div>
+                      <div className="tab-domain">{getDomain(tab.url)}</div>
+                    </div>
+                  </button>
                 </li>
               ))}
             </ul>
