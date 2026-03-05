@@ -11,7 +11,7 @@ import {
 } from '@src/lib/favicon-resolver';
 import { Command } from 'cmdk';
 import { Globe, Link2, PanelLeft, PanelRight, Plus, Search } from 'lucide-react';
-import { AnimatePresence, motion, Reorder } from 'motion/react';
+import { AnimatePresence, LayoutGroup, motion, Reorder, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import '@src/NewTab.css';
@@ -58,6 +58,20 @@ type WorkspaceFlyout = {
   y: number;
 };
 
+type AddBookmarkMorphPhase = 'editing' | 'committing';
+
+type AddBookmarkMorphState = {
+  collectionId: string;
+  draftTitle: string;
+  draftUrl: string;
+  phase: AddBookmarkMorphPhase;
+};
+
+type RecentlyCreatedBookmark = {
+  collectionId: string;
+  bookmarkId: string;
+} | null;
+
 const ROOT_FOLDER = 'Bookmark Workspace';
 const DND_TAB_MIME = 'application/x-bookmark-workspace-tab';
 const DND_COLLECTION_MIME = 'application/x-bookmark-workspace-collection';
@@ -83,8 +97,18 @@ const loadTree = async () => {
 
 const getPersisted = (key: string) => window.localStorage.getItem(key) || '';
 const getPersistedBool = (key: string) => window.localStorage.getItem(key) === '1';
+const isValidBookmarkUrl = (value: string) => {
+  if (!value) return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
 
 const NewTab = () => {
+  const shouldReduceMotion = useReducedMotion();
   const [tree, setTree] = useState<BookmarkNode | null>(null);
   const [workspaceId, setWorkspaceId] = useState<string>(() => getPersisted(LS_SELECTED_SPACE));
   const [commandOpen, setCommandOpen] = useState(false);
@@ -122,15 +146,23 @@ const NewTab = () => {
   const [editingBookmarkBusy, setEditingBookmarkBusy] = useState(false);
   const editingTitleRef = useRef<HTMLInputElement | null>(null);
   const editingUrlRef = useRef<HTMLInputElement | null>(null);
-  const [addingBookmarkCollectionId, setAddingBookmarkCollectionId] = useState<string | null>(null);
-  const [addingBookmarkTitle, setAddingBookmarkTitle] = useState('');
-  const [addingBookmarkUrl, setAddingBookmarkUrl] = useState('');
-  const [addingBookmarkBusy, setAddingBookmarkBusy] = useState(false);
+  const [addBookmarkMorphState, setAddBookmarkMorphState] = useState<AddBookmarkMorphState | null>(null);
+  const [recentlyCreatedBookmark, setRecentlyCreatedBookmark] = useState<RecentlyCreatedBookmark>(null);
   const addingBookmarkTitleRef = useRef<HTMLInputElement | null>(null);
   const addingBookmarkUrlRef = useRef<HTMLInputElement | null>(null);
+  const addingBookmarkFormRef = useRef<HTMLDivElement | null>(null);
   const [workspaceFlyout, setWorkspaceFlyout] = useState<WorkspaceFlyout | null>(null);
   const openFlyoutTimerRef = useRef<number | null>(null);
   const closeFlyoutTimerRef = useRef<number | null>(null);
+  const suppressBookmarkRefreshRef = useRef(false);
+
+  const addingBookmarkCollectionId = addBookmarkMorphState?.collectionId ?? null;
+  const addingBookmarkTitle = addBookmarkMorphState?.draftTitle ?? '';
+  const addingBookmarkUrl = addBookmarkMorphState?.draftUrl ?? '';
+  const addingBookmarkBusy = addBookmarkMorphState?.phase === 'committing';
+  const addingBookmarkEditing = addBookmarkMorphState?.phase === 'editing';
+  const [addingBookmarkInvalid, setAddingBookmarkInvalid] = useState(false);
+  const [addingBookmarkShakeToken, setAddingBookmarkShakeToken] = useState(0);
 
   const refresh = useCallback(async () => {
     const next = await loadTree();
@@ -150,7 +182,10 @@ const NewTab = () => {
     refresh().catch(console.error);
     refreshTabs().catch(console.error);
 
-    const onBookmarksChanged = () => refresh().catch(console.error);
+    const onBookmarksChanged = () => {
+      if (suppressBookmarkRefreshRef.current) return;
+      refresh().catch(console.error);
+    };
     const onTabsChanged = () => refreshTabs().catch(console.error);
 
     chrome.bookmarks.onCreated.addListener(onBookmarksChanged);
@@ -201,11 +236,11 @@ const NewTab = () => {
   }, [editingBookmark]);
 
   useEffect(() => {
-    if (!addingBookmarkCollectionId) return;
+    if (!addingBookmarkCollectionId || !addingBookmarkEditing) return;
     requestAnimationFrame(() => {
       addingBookmarkTitleRef.current?.focus();
     });
-  }, [addingBookmarkCollectionId]);
+  }, [addingBookmarkCollectionId, addingBookmarkEditing]);
 
   useEffect(() => {
     if (!editingWorkspaceId) return;
@@ -301,13 +336,53 @@ const NewTab = () => {
   }, [workspaces]);
 
   useEffect(() => {
-    if (!addingBookmarkCollectionId) return;
-    if (collections.some(col => col.id === addingBookmarkCollectionId)) return;
-    setAddingBookmarkCollectionId(null);
-    setAddingBookmarkTitle('');
-    setAddingBookmarkUrl('');
-    setAddingBookmarkBusy(false);
-  }, [collections, addingBookmarkCollectionId]);
+    if (!addBookmarkMorphState) return;
+    if (collections.some(col => col.id === addBookmarkMorphState.collectionId)) return;
+    setAddBookmarkMorphState(null);
+    setRecentlyCreatedBookmark(null);
+    setAddingBookmarkInvalid(false);
+  }, [collections, addBookmarkMorphState]);
+
+  useEffect(() => {
+    if (!recentlyCreatedBookmark) return;
+    const cleanupDelay = shouldReduceMotion ? 40 : 900;
+    const timeout = window.setTimeout(() => {
+      setRecentlyCreatedBookmark(null);
+    }, cleanupDelay);
+    return () => window.clearTimeout(timeout);
+  }, [recentlyCreatedBookmark, shouldReduceMotion]);
+
+  useEffect(() => {
+    if (!addingBookmarkInvalid || addingBookmarkShakeToken <= 0) return;
+    const target = addingBookmarkFormRef.current;
+    if (!target) return;
+    target.getAnimations().forEach(animation => animation.cancel());
+    target.animate(
+      shouldReduceMotion
+        ? [
+            { transform: 'translateX(0px)' },
+            { transform: 'translateX(-6px)' },
+            { transform: 'translateX(6px)' },
+            { transform: 'translateX(-3px)' },
+            { transform: 'translateX(3px)' },
+            { transform: 'translateX(0px)' },
+          ]
+        : [
+            { transform: 'translateX(0px)' },
+            { transform: 'translateX(-12px)' },
+            { transform: 'translateX(12px)' },
+            { transform: 'translateX(-9px)' },
+            { transform: 'translateX(9px)' },
+            { transform: 'translateX(-5px)' },
+            { transform: 'translateX(5px)' },
+            { transform: 'translateX(0px)' },
+          ],
+      {
+        duration: shouldReduceMotion ? 220 : 340,
+        easing: 'cubic-bezier(0.36, 0.07, 0.19, 0.97)',
+      },
+    );
+  }, [addingBookmarkInvalid, addingBookmarkShakeToken, shouldReduceMotion]);
 
   useEffect(() => {
     setWorkspaceOrderIds(prev => {
@@ -505,39 +580,86 @@ const NewTab = () => {
     setToast('북마크 수정됨');
   };
 
+  const updateAddBookmarkDraft = (patch: Partial<Pick<AddBookmarkMorphState, 'draftTitle' | 'draftUrl'>>) => {
+    if (addingBookmarkInvalid) {
+      setAddingBookmarkInvalid(false);
+    }
+    setAddBookmarkMorphState(prev => {
+      if (!prev || prev.phase !== 'editing') return prev;
+      return { ...prev, ...patch };
+    });
+  };
+
   const openBookmarkInlineInput = (collectionId: string) => {
-    setAddingBookmarkCollectionId(collectionId);
-    setAddingBookmarkTitle('');
-    setAddingBookmarkUrl('');
-    setAddingBookmarkBusy(false);
+    setAddBookmarkMorphState({
+      collectionId,
+      draftTitle: '',
+      draftUrl: '',
+      phase: 'editing',
+    });
+    setAddingBookmarkInvalid(false);
   };
 
   const closeBookmarkInlineInput = () => {
-    setAddingBookmarkCollectionId(null);
-    setAddingBookmarkTitle('');
-    setAddingBookmarkUrl('');
-    setAddingBookmarkBusy(false);
+    setAddBookmarkMorphState(null);
+    setAddingBookmarkInvalid(false);
   };
 
   const submitBookmarkInlineInput = async () => {
-    if (!addingBookmarkCollectionId || addingBookmarkBusy) return;
-    const nextTitle = addingBookmarkTitle.trim();
-    const nextUrl = addingBookmarkUrl.trim();
+    if (!addBookmarkMorphState || addBookmarkMorphState.phase !== 'editing') return;
+    const nextTitle = addBookmarkMorphState.draftTitle.trim();
+    const nextUrl = addBookmarkMorphState.draftUrl.trim();
 
-    if (!nextUrl) {
+    if (!nextTitle && !nextUrl) {
       closeBookmarkInlineInput();
       return;
     }
 
-    setAddingBookmarkBusy(true);
-    await chrome.bookmarks.create({
-      parentId: addingBookmarkCollectionId,
-      title: nextTitle || nextUrl,
-      url: nextUrl,
+    if (!isValidBookmarkUrl(nextUrl)) {
+      setAddingBookmarkInvalid(true);
+      setAddingBookmarkShakeToken(v => v + 1);
+      setToast('유효한 URL을 입력해주세요');
+      return;
+    }
+
+    setAddingBookmarkInvalid(false);
+    const targetCollectionId = addBookmarkMorphState.collectionId;
+    suppressBookmarkRefreshRef.current = true;
+    setAddBookmarkMorphState(prev => {
+      if (!prev || prev.collectionId !== targetCollectionId) return prev;
+      return {
+        ...prev,
+        draftTitle: nextTitle,
+        draftUrl: nextUrl,
+        phase: 'committing',
+      };
     });
-    await refresh();
-    closeBookmarkInlineInput();
-    setToast('북마크 추가됨');
+
+    try {
+      const created = await chrome.bookmarks.create({
+        parentId: targetCollectionId,
+        title: nextTitle || nextUrl,
+        url: nextUrl,
+      });
+      await refresh();
+      setRecentlyCreatedBookmark({
+        collectionId: targetCollectionId,
+        bookmarkId: created.id,
+      });
+      setAddBookmarkMorphState(null);
+      setToast('북마크 추가됨');
+    } catch (error) {
+      console.error(error);
+      setAddBookmarkMorphState({
+        collectionId: targetCollectionId,
+        draftTitle: nextTitle,
+        draftUrl: nextUrl,
+        phase: 'editing',
+      });
+      setToast('북마크 추가 실패');
+    } finally {
+      suppressBookmarkRefreshRef.current = false;
+    }
   };
 
   const scheduleWorkspaceFlyoutOpen = (ws: BookmarkNode, anchorEl: HTMLElement) => {
@@ -834,7 +956,7 @@ const NewTab = () => {
                       </div>
                     </ContextMenu.Trigger>
                     <ContextMenu.Portal>
-                      <ContextMenu.Content className="col-context-menu" align="end" sideOffset={4}>
+                      <ContextMenu.Content className="col-context-menu">
                         <div className="col-context-label">스페이스 메뉴 · {ws.title}</div>
                         <ContextMenu.Separator className="col-context-separator" />
                         <ContextMenu.Item className="col-context-item" onSelect={() => startWorkspaceEdit(ws)}>
@@ -905,10 +1027,10 @@ const NewTab = () => {
                   key="inline-collection-input"
                   className={`col-card inline-input-card ${collectionInlineHideDuringExit ? 'is-hiding' : ''}`}
                   layout
-                  initial={{ scale: 0.985, y: -8 }}
-                  animate={{ scale: 1, y: 0 }}
-                  exit={{ scale: 0.985, y: -8 }}
-                  transition={{ duration: 0.2, ease: 'easeOut' }}>
+                  initial={shouldReduceMotion ? false : { scale: 0.985, y: -8 }}
+                  animate={shouldReduceMotion ? { scale: 1, y: 0 } : { scale: 1, y: 0 }}
+                  exit={shouldReduceMotion ? { opacity: 0 } : { scale: 0.985, y: -8 }}
+                  transition={shouldReduceMotion ? { duration: 0.01 } : { duration: 0.2, ease: 'easeOut' }}>
                   <div className="col-head">
                     <input
                       ref={collectionInlineRef}
@@ -936,333 +1058,422 @@ const NewTab = () => {
               )}
             </AnimatePresence>
             <AnimatePresence key={`collections-${workspaceId || 'all'}`} initial={false}>
-              {collections.map(col => (
-                <ContextMenu.Root
-                  modal={false}
-                  key={col.id}
-                  onOpenChange={open =>
-                    setActiveContext(prev =>
-                      open
-                        ? { kind: 'collection', id: col.id }
-                        : prev?.kind === 'collection' && prev.id === col.id
-                          ? null
-                          : prev,
-                    )
-                  }>
-                  <ContextMenu.Trigger asChild>
-                    <motion.article
-                      className={`col-card ${dropCollectionId === col.id ? 'drop-target' : ''} ${
-                        activeContext?.kind === 'collection' && activeContext.id === col.id ? 'context-active' : ''
-                      }`}
-                      layout="position"
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{
-                        y: { duration: 0.2, ease: 'easeOut' },
-                        opacity: { duration: 0.18, ease: 'easeOut' },
-                        layout: { type: 'spring', stiffness: 430, damping: 36 },
-                      }}
-                      draggable
-                      onDragStart={e => onDragCollectionStart(e, col)}
-                      onDragEnd={() => {
-                        setDropWorkspaceId(null);
-                        setDropCollectionId(null);
-                        setDragKind(null);
-                      }}
-                      onDragOver={e => {
-                        if (dragKind !== 'tab') return;
-                        e.preventDefault();
-                        setDropCollectionId(col.id);
-                      }}
-                      onDragLeave={() => setDropCollectionId(null)}
-                      onDrop={e => onDropTabToCollection(e, col.id)}>
-                      <div className="col-head">
-                        <h3 className="col-title">{col.title}</h3>
-                      </div>
-                      <ul className="link-list">
-                        <AnimatePresence initial={false}>
-                          {col.links.slice(0, 8).map((link, linkIndex) => {
-                            const icon = getFaviconSrc(link);
-                            const isFallbackIcon = icon === getFallbackFavicon();
-                            return (
+              {collections.map(col => {
+                const addStateForCollection =
+                  addBookmarkMorphState?.collectionId === col.id ? addBookmarkMorphState : null;
+                const recentlyAddedForCollection =
+                  recentlyCreatedBookmark?.collectionId === col.id ? recentlyCreatedBookmark : null;
+                const addPendingTitle =
+                  addStateForCollection?.draftTitle.trim() || addStateForCollection?.draftUrl || '새 북마크';
+                const addPendingDomain = getDomain(addStateForCollection?.draftUrl);
+                const visibleLinks = (() => {
+                  const base = col.links.slice(0, 8);
+                  if (!recentlyAddedForCollection) return base;
+                  if (base.some(link => link.id === recentlyAddedForCollection.bookmarkId)) return base;
+                  const target = col.links.find(link => link.id === recentlyAddedForCollection.bookmarkId);
+                  if (!target) return base;
+                  if (base.length < 8) return [...base, target];
+                  return [...base.slice(0, 7), target];
+                })();
+
+                return (
+                  <ContextMenu.Root
+                    modal={false}
+                    key={col.id}
+                    onOpenChange={open =>
+                      setActiveContext(prev =>
+                        open
+                          ? { kind: 'collection', id: col.id }
+                          : prev?.kind === 'collection' && prev.id === col.id
+                            ? null
+                            : prev,
+                      )
+                    }>
+                    <ContextMenu.Trigger asChild>
+                      <motion.article
+                        className={`col-card ${dropCollectionId === col.id ? 'drop-target' : ''} ${
+                          activeContext?.kind === 'collection' && activeContext.id === col.id ? 'context-active' : ''
+                        }`}
+                        layout="position"
+                        initial={shouldReduceMotion ? false : { opacity: 0, y: -6 }}
+                        animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -10 }}
+                        transition={
+                          shouldReduceMotion
+                            ? { duration: 0.01 }
+                            : {
+                                y: { duration: 0.2, ease: 'easeOut' },
+                                opacity: { duration: 0.18, ease: 'easeOut' },
+                                layout: { type: 'spring', stiffness: 430, damping: 36 },
+                              }
+                        }
+                        draggable
+                        onDragStart={e => onDragCollectionStart(e as unknown as React.DragEvent, col)}
+                        onDragEnd={() => {
+                          setDropWorkspaceId(null);
+                          setDropCollectionId(null);
+                          setDragKind(null);
+                        }}
+                        onDragOver={e => {
+                          if (dragKind !== 'tab') return;
+                          e.preventDefault();
+                          setDropCollectionId(col.id);
+                        }}
+                        onDragLeave={() => setDropCollectionId(null)}
+                        onDrop={e => onDropTabToCollection(e, col.id)}>
+                        <div className="col-head">
+                          <h3 className="col-title">{col.title}</h3>
+                        </div>
+                        <ul className="link-list">
+                          <LayoutGroup id={`collection-links-${col.id}`}>
+                            <AnimatePresence initial={false}>
+                              {visibleLinks.map((link, linkIndex) => {
+                                const icon = getFaviconSrc(link);
+                                const isFallbackIcon = icon === getFallbackFavicon();
+                                const isNewlyAdded =
+                                  recentlyCreatedBookmark?.collectionId === col.id &&
+                                  recentlyCreatedBookmark.bookmarkId === link.id;
+                                const linkTitle = link.title || link.url || 'Untitled';
+                                const linkDomain = getDomain(link.url);
+                                return (
+                                  <motion.li
+                                    key={link.id}
+                                    layout
+                                    initial={
+                                      isNewlyAdded ? (shouldReduceMotion ? false : { opacity: 0, y: 14 }) : false
+                                    }
+                                    animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                                    exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+                                    transition={
+                                      isNewlyAdded
+                                        ? shouldReduceMotion
+                                          ? { duration: 0.01 }
+                                          : { duration: 0.28, ease: 'easeOut' }
+                                        : shouldReduceMotion
+                                          ? { duration: 0.01 }
+                                          : { duration: 0.16, ease: 'easeOut' }
+                                    }>
+                                    <ContextMenu.Root
+                                      modal={false}
+                                      onOpenChange={open =>
+                                        setActiveContext(prev =>
+                                          open
+                                            ? { kind: 'bookmark', id: link.id }
+                                            : prev?.kind === 'bookmark' && prev.id === link.id
+                                              ? null
+                                              : prev,
+                                        )
+                                      }>
+                                      <ContextMenu.Trigger asChild>
+                                        {editingBookmark?.id === link.id ? (
+                                          <div className="bookmark-item is-editing">
+                                            {isFallbackIcon ? (
+                                              <span className="fav-fallback" aria-hidden>
+                                                <Link2 size={14} />
+                                              </span>
+                                            ) : (
+                                              <img
+                                                className="fav"
+                                                src={icon}
+                                                alt=""
+                                                onError={() => onFaviconError(link)}
+                                                onLoad={e =>
+                                                  rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)
+                                                }
+                                              />
+                                            )}
+                                            <span className="link-main">
+                                              <input
+                                                ref={editingTitleRef}
+                                                className="bookmark-edit-input title"
+                                                value={editingTitle}
+                                                onChange={e => setEditingTitle(e.currentTarget.value)}
+                                                onKeyDown={e => {
+                                                  if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    void saveBookmarkEdit();
+                                                  } else if (e.key === 'Escape') {
+                                                    e.preventDefault();
+                                                    cancelBookmarkEdit();
+                                                  }
+                                                }}
+                                                onBlur={() => {
+                                                  setTimeout(() => {
+                                                    const active = document.activeElement;
+                                                    if (
+                                                      active === editingTitleRef.current ||
+                                                      active === editingUrlRef.current
+                                                    )
+                                                      return;
+                                                    void saveBookmarkEdit();
+                                                  }, 0);
+                                                }}
+                                                placeholder="제목"
+                                                disabled={editingBookmarkBusy}
+                                              />
+                                              <input
+                                                ref={editingUrlRef}
+                                                className="bookmark-edit-input url"
+                                                value={editingUrl}
+                                                onChange={e => setEditingUrl(e.currentTarget.value)}
+                                                onKeyDown={e => {
+                                                  if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    void saveBookmarkEdit();
+                                                  } else if (e.key === 'Escape') {
+                                                    e.preventDefault();
+                                                    cancelBookmarkEdit();
+                                                  }
+                                                }}
+                                                onBlur={() => {
+                                                  setTimeout(() => {
+                                                    const active = document.activeElement;
+                                                    if (
+                                                      active === editingTitleRef.current ||
+                                                      active === editingUrlRef.current
+                                                    )
+                                                      return;
+                                                    void saveBookmarkEdit();
+                                                  }, 0);
+                                                }}
+                                                placeholder="https://"
+                                                disabled={editingBookmarkBusy}
+                                              />
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <motion.button
+                                            className={`link-row ${
+                                              activeContext?.kind === 'bookmark' && activeContext.id === link.id
+                                                ? 'context-active'
+                                                : ''
+                                            }`}
+                                            onClick={() => openLink(link.url)}
+                                            title={link.url || ''}>
+                                            <motion.span className="bookmark-icon-shell">
+                                              <AnimatePresence initial={false} mode="wait">
+                                                {isFallbackIcon ? (
+                                                  <motion.span
+                                                    key="fallback"
+                                                    className="fav-fallback bookmark-icon-layer"
+                                                    aria-hidden
+                                                    initial={shouldReduceMotion ? false : { opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0 }}
+                                                    transition={{ duration: shouldReduceMotion ? 0.01 : 0.14 }}>
+                                                    <Link2 size={14} />
+                                                  </motion.span>
+                                                ) : (
+                                                  <motion.img
+                                                    key={icon}
+                                                    className="fav bookmark-icon-layer"
+                                                    src={icon}
+                                                    alt=""
+                                                    onError={() => onFaviconError(link)}
+                                                    onLoad={e =>
+                                                      rememberFavicon(
+                                                        link.url,
+                                                        (e.currentTarget as HTMLImageElement).src,
+                                                      )
+                                                    }
+                                                    initial={shouldReduceMotion ? false : { opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0 }}
+                                                    transition={{ duration: shouldReduceMotion ? 0.01 : 0.2 }}
+                                                  />
+                                                )}
+                                              </AnimatePresence>
+                                            </motion.span>
+                                            <motion.span className="link-main">
+                                              <motion.span className="link-title">{linkTitle}</motion.span>
+                                              <motion.span className="link-domain">{linkDomain}</motion.span>
+                                            </motion.span>
+                                          </motion.button>
+                                        )}
+                                      </ContextMenu.Trigger>
+                                      <ContextMenu.Portal>
+                                        <ContextMenu.Content className="col-context-menu">
+                                          <div className="col-context-label">
+                                            북마크 메뉴 · {link.title || getDomain(link.url) || 'Untitled'}
+                                          </div>
+                                          <ContextMenu.Separator className="col-context-separator" />
+                                          <ContextMenu.Item
+                                            className="col-context-item"
+                                            onSelect={() => void openLink(link.url)}>
+                                            새 탭에서 열기
+                                          </ContextMenu.Item>
+                                          <ContextMenu.Item
+                                            className="col-context-item"
+                                            onSelect={() => void copyLink(link.url)}>
+                                            링크 복사
+                                          </ContextMenu.Item>
+                                          <ContextMenu.Item
+                                            className="col-context-item"
+                                            onSelect={() => startBookmarkEdit(link, col.id, linkIndex)}>
+                                            수정
+                                          </ContextMenu.Item>
+                                          <ContextMenu.Separator className="col-context-separator" />
+                                          <ContextMenu.Item
+                                            className="col-context-item col-context-item-destructive"
+                                            onSelect={() =>
+                                              setDeleteTarget({
+                                                kind: 'bookmark',
+                                                id: link.id,
+                                                title: link.title || link.url || 'Untitled',
+                                                url: link.url,
+                                              })
+                                            }>
+                                            북마크 삭제
+                                          </ContextMenu.Item>
+                                        </ContextMenu.Content>
+                                      </ContextMenu.Portal>
+                                    </ContextMenu.Root>
+                                  </motion.li>
+                                );
+                              })}
                               <motion.li
-                                key={link.id}
+                                key={`${col.id}-inline-bookmark`}
+                                className="bookmark-inline-add-slot"
                                 layout
-                                exit={{ opacity: 0, y: -6 }}
-                                transition={{ duration: 0.16 }}>
-                                <ContextMenu.Root
-                                  modal={false}
-                                  onOpenChange={open =>
-                                    setActiveContext(prev =>
-                                      open
-                                        ? { kind: 'bookmark', id: link.id }
-                                        : prev?.kind === 'bookmark' && prev.id === link.id
-                                          ? null
-                                          : prev,
-                                    )
-                                  }>
-                                  <ContextMenu.Trigger asChild>
-                                    {editingBookmark?.id === link.id ? (
-                                      <div className="bookmark-item is-editing">
-                                        {isFallbackIcon ? (
-                                          <span className="fav-fallback" aria-hidden>
-                                            <Link2 size={14} />
-                                          </span>
-                                        ) : (
-                                          <img
-                                            className="fav"
-                                            src={icon}
-                                            alt=""
-                                            onError={() => onFaviconError(link)}
-                                            onLoad={e =>
-                                              rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)
+                                transition={
+                                  shouldReduceMotion
+                                    ? { duration: 0.01 }
+                                    : { type: 'spring', stiffness: 460, damping: 38 }
+                                }>
+                                {addStateForCollection?.phase === 'editing' ? (
+                                  <div
+                                    ref={addingBookmarkFormRef}
+                                    className={`bookmark-item bookmark-inline-add-form is-editing ${
+                                      addingBookmarkInvalid ? 'is-invalid' : ''
+                                    }`}>
+                                    <span className="fav-fallback" aria-hidden>
+                                      <Plus size={14} />
+                                    </span>
+                                    <span className="link-main">
+                                      <div className="bookmark-add-text-shell">
+                                        <input
+                                          ref={addingBookmarkTitleRef}
+                                          className="bookmark-edit-input title inline-add-input"
+                                          value={addingBookmarkTitle}
+                                          onChange={e => updateAddBookmarkDraft({ draftTitle: e.currentTarget.value })}
+                                          onKeyDown={e => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault();
+                                              void submitBookmarkInlineInput();
+                                            } else if (e.key === 'Escape') {
+                                              e.preventDefault();
+                                              closeBookmarkInlineInput();
                                             }
-                                          />
-                                        )}
-                                        <span className="link-main">
-                                          <input
-                                            ref={editingTitleRef}
-                                            className="bookmark-edit-input title"
-                                            value={editingTitle}
-                                            onChange={e => setEditingTitle(e.currentTarget.value)}
-                                            onKeyDown={e => {
-                                              if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                void saveBookmarkEdit();
-                                              } else if (e.key === 'Escape') {
-                                                e.preventDefault();
-                                                cancelBookmarkEdit();
-                                              }
-                                            }}
-                                            onBlur={() => {
-                                              setTimeout(() => {
-                                                const active = document.activeElement;
-                                                if (
-                                                  active === editingTitleRef.current ||
-                                                  active === editingUrlRef.current
-                                                )
-                                                  return;
-                                                void saveBookmarkEdit();
-                                              }, 0);
-                                            }}
-                                            placeholder="제목"
-                                            disabled={editingBookmarkBusy}
-                                          />
-                                          <input
-                                            ref={editingUrlRef}
-                                            className="bookmark-edit-input url"
-                                            value={editingUrl}
-                                            onChange={e => setEditingUrl(e.currentTarget.value)}
-                                            onKeyDown={e => {
-                                              if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                void saveBookmarkEdit();
-                                              } else if (e.key === 'Escape') {
-                                                e.preventDefault();
-                                                cancelBookmarkEdit();
-                                              }
-                                            }}
-                                            onBlur={() => {
-                                              setTimeout(() => {
-                                                const active = document.activeElement;
-                                                if (
-                                                  active === editingTitleRef.current ||
-                                                  active === editingUrlRef.current
-                                                )
-                                                  return;
-                                                void saveBookmarkEdit();
-                                              }, 0);
-                                            }}
-                                            placeholder="https://"
-                                            disabled={editingBookmarkBusy}
-                                          />
-                                        </span>
+                                          }}
+                                          onBlur={() => {
+                                            setTimeout(() => {
+                                              const active = document.activeElement;
+                                              if (
+                                                active === addingBookmarkTitleRef.current ||
+                                                active === addingBookmarkUrlRef.current
+                                              )
+                                                return;
+                                              void submitBookmarkInlineInput();
+                                            }, 0);
+                                          }}
+                                          placeholder="북마크 제목"
+                                          disabled={addingBookmarkBusy}
+                                        />
                                       </div>
-                                    ) : (
-                                      <button
-                                        className={`link-row ${
-                                          activeContext?.kind === 'bookmark' && activeContext.id === link.id
-                                            ? 'context-active'
-                                            : ''
-                                        }`}
-                                        onClick={() => openLink(link.url)}
-                                        title={link.url || ''}>
-                                        {isFallbackIcon ? (
-                                          <span className="fav-fallback" aria-hidden>
-                                            <Link2 size={14} />
-                                          </span>
-                                        ) : (
-                                          <img
-                                            className="fav"
-                                            src={icon}
-                                            alt=""
-                                            onError={() => onFaviconError(link)}
-                                            onLoad={e =>
-                                              rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)
+                                      <div className="bookmark-add-text-shell">
+                                        <input
+                                          ref={addingBookmarkUrlRef}
+                                          className="bookmark-edit-input url inline-add-input"
+                                          value={addingBookmarkUrl}
+                                          onChange={e => updateAddBookmarkDraft({ draftUrl: e.currentTarget.value })}
+                                          onKeyDown={e => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault();
+                                              void submitBookmarkInlineInput();
+                                            } else if (e.key === 'Escape') {
+                                              e.preventDefault();
+                                              closeBookmarkInlineInput();
                                             }
-                                          />
-                                        )}
-                                        <span className="link-main">
-                                          <span className="link-title">{link.title || link.url}</span>
-                                          <span className="link-domain">{getDomain(link.url)}</span>
-                                        </span>
-                                      </button>
-                                    )}
-                                  </ContextMenu.Trigger>
-                                  <ContextMenu.Portal>
-                                    <ContextMenu.Content className="col-context-menu" align="end" sideOffset={4}>
-                                      <div className="col-context-label">
-                                        북마크 메뉴 · {link.title || getDomain(link.url) || 'Untitled'}
+                                          }}
+                                          onBlur={() => {
+                                            setTimeout(() => {
+                                              const active = document.activeElement;
+                                              if (
+                                                active === addingBookmarkTitleRef.current ||
+                                                active === addingBookmarkUrlRef.current
+                                              )
+                                                return;
+                                              void submitBookmarkInlineInput();
+                                            }, 0);
+                                          }}
+                                          placeholder="https://"
+                                          disabled={addingBookmarkBusy}
+                                        />
                                       </div>
-                                      <ContextMenu.Separator className="col-context-separator" />
-                                      <ContextMenu.Item
-                                        className="col-context-item"
-                                        onSelect={() => void openLink(link.url)}>
-                                        새 탭에서 열기
-                                      </ContextMenu.Item>
-                                      <ContextMenu.Item
-                                        className="col-context-item"
-                                        onSelect={() => void copyLink(link.url)}>
-                                        링크 복사
-                                      </ContextMenu.Item>
-                                      <ContextMenu.Item
-                                        className="col-context-item"
-                                        onSelect={() => startBookmarkEdit(link, col.id, linkIndex)}>
-                                        수정
-                                      </ContextMenu.Item>
-                                      <ContextMenu.Separator className="col-context-separator" />
-                                      <ContextMenu.Item
-                                        className="col-context-item col-context-item-destructive"
-                                        onSelect={() =>
-                                          setDeleteTarget({
-                                            kind: 'bookmark',
-                                            id: link.id,
-                                            title: link.title || link.url || 'Untitled',
-                                            url: link.url,
-                                          })
-                                        }>
-                                        북마크 삭제
-                                      </ContextMenu.Item>
-                                    </ContextMenu.Content>
-                                  </ContextMenu.Portal>
-                                </ContextMenu.Root>
+                                    </span>
+                                  </div>
+                                ) : addStateForCollection?.phase === 'committing' ? (
+                                  <div className="bookmark-item bookmark-inline-add-pending">
+                                    <span className="fav-fallback" aria-hidden>
+                                      <Plus size={14} />
+                                    </span>
+                                    <span className="link-main">
+                                      <span className="link-title bookmark-inline-add-title">{addPendingTitle}</span>
+                                      <span className="link-domain bookmark-inline-add-hint">
+                                        {addPendingDomain || addStateForCollection.draftUrl || '북마크 저장 중...'}
+                                      </span>
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <button
+                                    className="bookmark-item bookmark-inline-add-trigger"
+                                    onClick={() => openBookmarkInlineInput(col.id)}>
+                                    <span className="fav-fallback" aria-hidden>
+                                      <Plus size={14} />
+                                    </span>
+                                    <span className="link-main">
+                                      <span className="link-title bookmark-inline-add-title">새 북마크 추가...</span>
+                                      <span className="link-domain bookmark-inline-add-hint">URL 붙여넣기</span>
+                                    </span>
+                                  </button>
+                                )}
                               </motion.li>
-                            );
-                          })}
-                          <li className="bookmark-inline-add-slot" key={`${col.id}-inline-bookmark`}>
-                            {addingBookmarkCollectionId === col.id ? (
-                              <div className="bookmark-item bookmark-inline-add-form is-editing">
-                                <span className="fav-fallback" aria-hidden>
-                                  <Plus size={14} />
-                                </span>
-                                <span className="link-main">
-                                  <input
-                                    ref={addingBookmarkTitleRef}
-                                    className="bookmark-edit-input title inline-add-input"
-                                    value={addingBookmarkTitle}
-                                    onChange={e => setAddingBookmarkTitle(e.currentTarget.value)}
-                                    onKeyDown={e => {
-                                      if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        void submitBookmarkInlineInput();
-                                      } else if (e.key === 'Escape') {
-                                        e.preventDefault();
-                                        closeBookmarkInlineInput();
-                                      }
-                                    }}
-                                    onBlur={() => {
-                                      setTimeout(() => {
-                                        const active = document.activeElement;
-                                        if (
-                                          active === addingBookmarkTitleRef.current ||
-                                          active === addingBookmarkUrlRef.current
-                                        )
-                                          return;
-                                        void submitBookmarkInlineInput();
-                                      }, 0);
-                                    }}
-                                    placeholder="북마크 제목"
-                                    disabled={addingBookmarkBusy}
-                                  />
-                                  <input
-                                    ref={addingBookmarkUrlRef}
-                                    className="bookmark-edit-input url inline-add-input"
-                                    value={addingBookmarkUrl}
-                                    onChange={e => setAddingBookmarkUrl(e.currentTarget.value)}
-                                    onKeyDown={e => {
-                                      if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        void submitBookmarkInlineInput();
-                                      } else if (e.key === 'Escape') {
-                                        e.preventDefault();
-                                        closeBookmarkInlineInput();
-                                      }
-                                    }}
-                                    onBlur={() => {
-                                      setTimeout(() => {
-                                        const active = document.activeElement;
-                                        if (
-                                          active === addingBookmarkTitleRef.current ||
-                                          active === addingBookmarkUrlRef.current
-                                        )
-                                          return;
-                                        void submitBookmarkInlineInput();
-                                      }, 0);
-                                    }}
-                                    placeholder="https://"
-                                    disabled={addingBookmarkBusy}
-                                  />
-                                </span>
-                              </div>
-                            ) : (
-                              <button
-                                className="bookmark-item bookmark-inline-add-trigger"
-                                onClick={() => openBookmarkInlineInput(col.id)}>
-                                <span className="fav-fallback" aria-hidden>
-                                  <Plus size={14} />
-                                </span>
-                                <span className="link-main">
-                                  <span className="link-title bookmark-inline-add-title">새 북마크 추가...</span>
-                                  <span className="link-domain bookmark-inline-add-hint">URL 붙여넣기</span>
-                                </span>
-                              </button>
-                            )}
-                          </li>
-                        </AnimatePresence>
-                      </ul>
-                    </motion.article>
-                  </ContextMenu.Trigger>
-                  <ContextMenu.Portal>
-                    <ContextMenu.Content className="col-context-menu" alignOffset={-4}>
-                      <div className="col-context-label">그룹 메뉴 · {col.title}</div>
-                      <ContextMenu.Separator className="col-context-separator" />
-                      <ContextMenu.Item
-                        className="col-context-item"
-                        onSelect={() => void openCollection(col.id, 'group')}>
-                        그룹 열기
-                      </ContextMenu.Item>
-                      <ContextMenu.Item
-                        className="col-context-item"
-                        onSelect={() => void openCollection(col.id, 'new-window')}>
-                        새 창 열기
-                      </ContextMenu.Item>
-                      <ContextMenu.Separator className="col-context-separator" />
-                      <ContextMenu.Item
-                        className="col-context-item col-context-item-destructive"
-                        onSelect={() =>
-                          setDeleteTarget({
-                            kind: 'collection',
-                            id: col.id,
-                            title: col.title,
-                          })
-                        }>
-                        그룹 삭제
-                      </ContextMenu.Item>
-                    </ContextMenu.Content>
-                  </ContextMenu.Portal>
-                </ContextMenu.Root>
-              ))}
+                            </AnimatePresence>
+                          </LayoutGroup>
+                        </ul>
+                      </motion.article>
+                    </ContextMenu.Trigger>
+                    <ContextMenu.Portal>
+                      <ContextMenu.Content className="col-context-menu" alignOffset={-4}>
+                        <div className="col-context-label">그룹 메뉴 · {col.title}</div>
+                        <ContextMenu.Separator className="col-context-separator" />
+                        <ContextMenu.Item
+                          className="col-context-item"
+                          onSelect={() => void openCollection(col.id, 'group')}>
+                          그룹 열기
+                        </ContextMenu.Item>
+                        <ContextMenu.Item
+                          className="col-context-item"
+                          onSelect={() => void openCollection(col.id, 'new-window')}>
+                          새 창 열기
+                        </ContextMenu.Item>
+                        <ContextMenu.Separator className="col-context-separator" />
+                        <ContextMenu.Item
+                          className="col-context-item col-context-item-destructive"
+                          onSelect={() =>
+                            setDeleteTarget({
+                              kind: 'collection',
+                              id: col.id,
+                              title: col.title,
+                            })
+                          }>
+                          그룹 삭제
+                        </ContextMenu.Item>
+                      </ContextMenu.Content>
+                    </ContextMenu.Portal>
+                  </ContextMenu.Root>
+                );
+              })}
             </AnimatePresence>
           </div>
         </section>

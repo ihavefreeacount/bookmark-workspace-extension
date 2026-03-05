@@ -590,16 +590,50 @@ button.active {
 
 .bookmark-inline-add-slot {
   min-height: 64px;
+  overflow: hidden;
 }
 
 .bookmark-inline-add-form {
   min-height: 64px;
 }
 
+.bookmark-inline-add-form.is-invalid {
+  background: #fff5f5;
+}
+
+.bookmark-inline-add-pending {
+  min-height: 64px;
+  background: rgba(0, 122, 255, 0.04);
+}
+
+.bookmark-inline-add-form .link-main,
+.bookmark-inline-add-pending .link-main {
+  width: 100%;
+}
+
+.bookmark-add-text-shell {
+  width: 100%;
+}
+
 .fav {
   width: 16px;
   height: 16px;
   border-radius: 4px;
+}
+
+.bookmark-icon-shell {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.bookmark-icon-layer {
+  position: absolute;
+  inset: 0;
 }
 
 .fav-fallback {
@@ -690,6 +724,37 @@ button.active {
   box-shadow:
     0 0 0 1px rgba(0, 122, 255, 0.5),
     0 0 0 3px rgba(0, 122, 255, 0.25);
+}
+
+.bookmark-inline-add-form.is-invalid .fav-fallback {
+  background: #fef1f1;
+  color: #c24141;
+}
+
+.bookmark-inline-add-form .fav-fallback svg {
+  transition: transform 180ms ease;
+  transform-origin: center;
+}
+
+.bookmark-inline-add-form.is-invalid .fav-fallback svg {
+  transform: rotate(45deg);
+}
+
+.bookmark-inline-add-form.is-invalid .bookmark-edit-input.title {
+  color: #9f3a3a;
+}
+
+.bookmark-inline-add-form.is-invalid .bookmark-edit-input.url {
+  color: #c24141;
+}
+
+.bookmark-inline-add-form.is-invalid .bookmark-edit-input::placeholder {
+  color: #f29b9b;
+}
+
+.bookmark-inline-add-form.is-invalid .bookmark-edit-input:focus {
+  background: #fff9f9;
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.16);
 }
 
 .bookmark-inline-add-trigger {
