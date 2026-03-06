@@ -453,8 +453,8 @@ const NewTab = () => {
 
     setCollectionInlineBusy(true);
     await chrome.bookmarks.create({ parentId: workspaceId, title: name, index: 0 });
+    closeCollectionInlineInput({ hideDuringExit: true });
     await refresh();
-    closeCollectionInlineInput();
   };
 
   const saveWindow = async () => {
@@ -1033,8 +1033,12 @@ const NewTab = () => {
                   layout
                   initial={shouldReduceMotion ? false : { scale: 0.985, y: -8 }}
                   animate={shouldReduceMotion ? { scale: 1, y: 0 } : { scale: 1, y: 0 }}
-                  exit={shouldReduceMotion ? { opacity: 0 } : { scale: 0.985, y: -8 }}
-                  transition={shouldReduceMotion ? { duration: 0.01 } : { duration: 0.2, ease: 'easeOut' }}>
+                  exit={
+                    shouldReduceMotion
+                      ? { opacity: 0, transition: { duration: 0.01 } }
+                      : { opacity: 0, scale: 0.992, y: -4, transition: { duration: 0.12, ease: 'easeOut' } }
+                  }
+                  transition={shouldReduceMotion ? { duration: 0.01 } : { duration: 0.18, ease: 'easeOut' }}>
                   <div className="col-head">
                     <input
                       ref={collectionInlineRef}
