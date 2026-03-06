@@ -924,9 +924,13 @@ const NewTab = () => {
                           </div>
                         ) : (
                           <button
-                            className={`${workspaceId === ws.id ? 'active' : ''} ${
-                              dropWorkspaceId === ws.id ? 'drop-target' : ''
-                            }`}
+                            className={[
+                              'workspace-item',
+                              workspaceId === ws.id ? 'active' : '',
+                              dropWorkspaceId === ws.id ? 'drop-target' : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
                             onMouseEnter={e => scheduleWorkspaceFlyoutOpen(ws, e.currentTarget)}
                             onMouseLeave={scheduleWorkspaceFlyoutClose}
                             onClick={() => {
