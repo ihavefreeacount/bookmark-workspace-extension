@@ -459,7 +459,7 @@ const NewTab = () => {
 
   const saveWindow = async () => {
     if (!workspaceId) return;
-    const name = window.prompt('컬렉션 이름', 'Current Window');
+    const name = window.prompt('컬렉션 이름', '현재 창');
     if (!name) return;
 
     const collection = await chrome.bookmarks.create({ parentId: workspaceId, title: name.trim() });
@@ -476,7 +476,7 @@ const NewTab = () => {
       }
       count += 1;
     }
-    setToast(`${count}개 링크 저장됨`);
+    setToast(`링크 ${count}개를 저장했습니다.`);
   };
 
   const confirmDelete = async () => {
@@ -484,13 +484,13 @@ const NewTab = () => {
     setDeleteBusy(true);
     if (deleteTarget.kind === 'workspace') {
       await chrome.bookmarks.removeTree(deleteTarget.id);
-      setToast('스페이스가 삭제됨');
+      setToast('워크스페이스를 삭제했습니다.');
     } else if (deleteTarget.kind === 'collection') {
       await chrome.bookmarks.removeTree(deleteTarget.id);
-      setToast('컬렉션이 삭제됨');
+      setToast('컬렉션을 삭제했습니다.');
     } else {
       await chrome.bookmarks.remove(deleteTarget.id);
-      setToast('북마크가 삭제됨');
+      setToast('북마크를 삭제했습니다.');
     }
     await refresh();
     setDeleteBusy(false);
@@ -533,7 +533,7 @@ const NewTab = () => {
   const copyLink = async (url?: string) => {
     if (!url) return;
     await navigator.clipboard.writeText(url);
-    setToast('링크 복사됨');
+    setToast('링크를 복사했습니다.');
   };
 
   const startBookmarkEdit = (link: BookmarkNode, parentId: string, index: number) => {
@@ -577,7 +577,7 @@ const NewTab = () => {
     });
     await refresh();
     cancelBookmarkEdit();
-    setToast('북마크 수정됨');
+    setToast('북마크를 수정했습니다.');
   };
 
   const updateAddBookmarkDraft = (patch: Partial<Pick<AddBookmarkMorphState, 'draftTitle' | 'draftUrl'>>) => {
@@ -618,7 +618,7 @@ const NewTab = () => {
     if (!isValidBookmarkUrl(nextUrl)) {
       setAddingBookmarkInvalid(true);
       setAddingBookmarkShakeToken(v => v + 1);
-      setToast('유효한 URL을 입력해주세요');
+      setToast('유효한 URL을 입력해 주세요.');
       return;
     }
 
@@ -647,7 +647,7 @@ const NewTab = () => {
         bookmarkId: created.id,
       });
       setAddBookmarkMorphState(null);
-      setToast('북마크 추가됨');
+      setToast('북마크를 추가했습니다.');
     } catch (error) {
       console.error(error);
       setAddBookmarkMorphState({
@@ -656,7 +656,7 @@ const NewTab = () => {
         draftUrl: nextUrl,
         phase: 'editing',
       });
-      setToast('북마크 추가 실패');
+      setToast('북마크를 추가하지 못했습니다.');
     } finally {
       suppressBookmarkRefreshRef.current = false;
     }
@@ -724,7 +724,7 @@ const NewTab = () => {
     await chrome.bookmarks.update(editingWorkspaceId, { title: nextName });
     await refresh();
     cancelWorkspaceEdit();
-    setToast('스페이스 이름 수정됨');
+    setToast('워크스페이스 이름을 변경했습니다.');
   };
 
   const persistWorkspaceOrder = async () => {
@@ -736,7 +736,7 @@ const NewTab = () => {
     }
     await refresh();
     setWorkspaceReorderBusy(false);
-    setToast('스페이스 순서 변경됨');
+    setToast('워크스페이스 순서를 변경했습니다.');
   };
 
   const onDragCollectionStart = (e: React.DragEvent, collection: CollectionSummary) => {
@@ -766,7 +766,11 @@ const NewTab = () => {
     if (!payload.collectionId || !payload.workspaceId || payload.workspaceId === targetWorkspace.id) return;
 
     await chrome.bookmarks.move(payload.collectionId, { parentId: targetWorkspace.id });
-    setToast(`'${payload.title || '컬렉션'}' → '${targetWorkspace.title || '스페이스'}' 이동됨`);
+    setToast(
+      `${
+        payload.title ? `'${payload.title}' 컬렉션을` : '컬렉션을'
+      } '${targetWorkspace.title || '워크스페이스'}'로 이동했습니다.`,
+    );
     await refresh();
   };
 
@@ -810,7 +814,7 @@ const NewTab = () => {
     if (payload.favIconUrl) {
       rememberFavicon(payload.url, payload.favIconUrl);
     }
-    setToast('링크 저장됨');
+    setToast('북마크를 저장했습니다.');
     await refresh();
   };
 
@@ -844,8 +848,8 @@ const NewTab = () => {
           <button
             className="tool-btn"
             onClick={() => setCommandOpen(true)}
-            title="검색 / 커맨드 (⌘K)"
-            aria-label="검색 / 커맨드">
+            title="검색 및 명령 (⌘K)"
+            aria-label="검색 및 명령">
             <Search size={18} aria-hidden="true" />
           </button>
           <button
@@ -961,7 +965,7 @@ const NewTab = () => {
                     </ContextMenu.Trigger>
                     <ContextMenu.Portal>
                       <ContextMenu.Content className="col-context-menu">
-                        <div className="col-context-label">스페이스 메뉴 · {ws.title}</div>
+                        <div className="col-context-label">워크스페이스 메뉴 · {ws.title}</div>
                         <ContextMenu.Separator className="col-context-separator" />
                         <ContextMenu.Item className="col-context-item" onSelect={() => startWorkspaceEdit(ws)}>
                           수정
@@ -975,7 +979,7 @@ const NewTab = () => {
                               title: ws.title || 'Untitled',
                             })
                           }>
-                          스페이스 삭제
+                          워크스페이스 삭제
                         </ContextMenu.Item>
                       </ContextMenu.Content>
                     </ContextMenu.Portal>
@@ -990,7 +994,7 @@ const NewTab = () => {
                     ref={workspaceInlineRef}
                     className="workspace-inline-input"
                     type="text"
-                    placeholder="스페이스 이름..."
+                    placeholder="워크스페이스 이름..."
                     value={workspaceInlineName}
                     onChange={e => setWorkspaceInlineName(e.currentTarget.value)}
                     onKeyDown={e => {
@@ -1013,10 +1017,10 @@ const NewTab = () => {
                 <button
                   className="workspace-add-button"
                   onClick={openWorkspaceInlineInput}
-                  title="스페이스 추가"
-                  aria-label="스페이스 추가">
+                  title="워크스페이스 추가"
+                  aria-label="워크스페이스 추가">
                   <Plus size={14} aria-hidden="true" />
-                  <span>스페이스 추가</span>
+                  <span>워크스페이스 추가</span>
                 </button>
               </li>
             </ul>
@@ -1453,17 +1457,17 @@ const NewTab = () => {
                     </ContextMenu.Trigger>
                     <ContextMenu.Portal>
                       <ContextMenu.Content className="col-context-menu" alignOffset={-4}>
-                        <div className="col-context-label">그룹 메뉴 · {col.title}</div>
+                        <div className="col-context-label">컬렉션 메뉴 · {col.title}</div>
                         <ContextMenu.Separator className="col-context-separator" />
                         <ContextMenu.Item
                           className="col-context-item"
                           onSelect={() => void openCollection(col.id, 'group')}>
-                          그룹 열기
+                          탭 그룹으로 열기
                         </ContextMenu.Item>
                         <ContextMenu.Item
                           className="col-context-item"
                           onSelect={() => void openCollection(col.id, 'new-window')}>
-                          새 창 열기
+                          새 창으로 열기
                         </ContextMenu.Item>
                         <ContextMenu.Separator className="col-context-separator" />
                         <ContextMenu.Item
@@ -1475,7 +1479,7 @@ const NewTab = () => {
                               title: col.title,
                             })
                           }>
-                          그룹 삭제
+                          컬렉션 삭제
                         </ContextMenu.Item>
                       </ContextMenu.Content>
                     </ContextMenu.Portal>
@@ -1490,7 +1494,7 @@ const NewTab = () => {
           <div className="panel-content">
             <div className="panel-section-header">
               <Globe className="panel-section-icon" size={15} aria-hidden="true" />
-              <strong>현재 열려있는 탭</strong>
+              <strong>열린 탭</strong>
             </div>
             <ul className="tab-list">
               {tabs.map(tab => (
@@ -1560,7 +1564,7 @@ const NewTab = () => {
                 }
               }}
               onMouseLeave={scheduleWorkspaceFlyoutClose}>
-              <div className="workspace-flyout-title">포함된 컬렉션</div>
+              <div className="workspace-flyout-title">컬렉션 목록</div>
               <ul className="workspace-flyout-list">
                 {workspaceFlyout.collections.map((name, idx) => (
                   <li key={`${workspaceFlyout.workspaceId}-${idx}-${name}`}>
@@ -1580,17 +1584,19 @@ const NewTab = () => {
           <AlertDialog.Content className="confirm-dialog">
             <AlertDialog.Title className="confirm-title">
               {deleteTarget?.kind === 'bookmark'
-                ? '북마크를 삭제할까요?'
+                ? '북마크를 삭제하시겠어요?'
                 : deleteTarget?.kind === 'workspace'
-                  ? '스페이스를 삭제할까요?'
-                  : '그룹을 삭제할까요?'}
+                  ? '워크스페이스를 삭제하시겠어요?'
+                  : '컬렉션을 삭제하시겠어요?'}
             </AlertDialog.Title>
             <AlertDialog.Description className="confirm-desc">
               {deleteTarget?.kind === 'bookmark'
-                ? `${deleteTarget.title} 북마크가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
+                ? `${deleteTarget.title} 북마크를 삭제합니다. 이 작업은 되돌릴 수 없습니다.`
                 : deleteTarget?.kind === 'workspace'
-                  ? `${deleteTarget.title} 스페이스와 하위 컬렉션/북마크가 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
-                  : `${deleteTarget?.title || '선택된 그룹'} 및 하위 북마크가 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`}
+                  ? `${deleteTarget.title} 워크스페이스와 포함된 컬렉션, 북마크를 모두 삭제합니다. 이 작업은 되돌릴 수 없습니다.`
+                  : deleteTarget?.title
+                    ? `${deleteTarget.title} 컬렉션과 포함된 북마크를 모두 삭제합니다. 이 작업은 되돌릴 수 없습니다.`
+                    : '선택한 컬렉션과 포함된 북마크를 모두 삭제합니다. 이 작업은 되돌릴 수 없습니다.'}
             </AlertDialog.Description>
             <div className="confirm-actions">
               <AlertDialog.Cancel asChild>
@@ -1618,7 +1624,7 @@ const NewTab = () => {
         }}>
         <Command.Input
           className="cmdk-input"
-          placeholder="명령, 스페이스, 컬렉션 검색..."
+          placeholder="명령, 워크스페이스, 컬렉션 검색..."
           value={commandQuery}
           onValueChange={setCommandQuery}
         />
@@ -1630,19 +1636,19 @@ const NewTab = () => {
               컬렉션 만들기
             </Command.Item>
             <Command.Item className="cmdk-item" onSelect={() => runCommand(() => openWorkspaceInlineInput())}>
-              스페이스 만들기
+              워크스페이스 만들기
             </Command.Item>
             <Command.Item className="cmdk-item" onSelect={() => runCommand(() => saveWindow())}>
-              현재 창 저장
+              현재 창을 컬렉션으로 저장
             </Command.Item>
           </Command.Group>
 
-          <Command.Group heading="스페이스" className="cmdk-group">
+          <Command.Group heading="워크스페이스" className="cmdk-group">
             {workspaces.map(ws => (
               <Command.Item
                 key={ws.id}
                 className="cmdk-item"
-                value={`space-${ws.title}`}
+                value={`workspace ${ws.title}`}
                 onSelect={() =>
                   runCommand(() => {
                     setWorkspaceId(ws.id);
@@ -1659,9 +1665,9 @@ const NewTab = () => {
               <Command.Item
                 key={`${col.id}-group`}
                 className="cmdk-item"
-                value={`${col.workspace} ${col.title} group`}
+                value={`${col.workspace} ${col.title} tab group`}
                 onSelect={() => runCommand(() => openCollection(col.id, 'group'))}>
-                {col.title} · 그룹 열기
+                {col.title} · 탭 그룹으로 열기
               </Command.Item>
             ))}
             {collections.map(col => (
@@ -1670,7 +1676,7 @@ const NewTab = () => {
                 className="cmdk-item"
                 value={`${col.workspace} ${col.title} window`}
                 onSelect={() => runCommand(() => openCollection(col.id, 'new-window'))}>
-                {col.title} · 새 창 열기
+                {col.title} · 새 창으로 열기
               </Command.Item>
             ))}
           </Command.Group>

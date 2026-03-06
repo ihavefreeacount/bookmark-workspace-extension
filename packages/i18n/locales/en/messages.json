@@ -8,10 +8,28 @@
     "message": "Chrome extension boilerplate"
   },
   "toggleTheme": {
-    "message": "Toggle theme"
+    "message": "Switch theme"
   },
   "injectButton": {
-    "message": "Click to inject Content Scripts"
+    "message": "Show page panel"
+  },
+  "popupDescription": {
+    "message": "Manage workspaces and collections from your new tab."
+  },
+  "popupActionDescription": {
+    "message": "You can also show a panel on the current page when needed."
+  },
+  "popupActionErrorTitle": {
+    "message": "Panel unavailable"
+  },
+  "popupActionErrorDescription": {
+    "message": "This page does not allow the panel to be shown."
+  },
+  "optionsTitle": {
+    "message": "Preferences"
+  },
+  "optionsDescription": {
+    "message": "Switch the extension theme."
   },
   "greeting": {
     "description": "Greeting message",

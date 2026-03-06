@@ -4,16 +4,15 @@ import { PROJECT_URL_OBJECT, useStorage, withErrorBoundary, withSuspense } from 
 import { exampleThemeStorage } from '@extension/storage';
 import { cn, ErrorDisplay, LoadingSpinner, ToggleButton } from '@extension/ui';
 
-const notificationOptions = {
-  type: 'basic',
-  iconUrl: chrome.runtime.getURL('icon-34.png'),
-  title: 'Injecting content script error',
-  message: 'You cannot inject script here!',
-} as const;
-
 const Popup = () => {
   const { isLight } = useStorage(exampleThemeStorage);
   const logo = isLight ? 'popup/logo_vertical.svg' : 'popup/logo_vertical_dark.svg';
+  const notificationOptions = {
+    type: 'basic',
+    iconUrl: chrome.runtime.getURL('icon-34.png'),
+    title: t('popupActionErrorTitle'),
+    message: t('popupActionErrorDescription'),
+  } as const;
 
   const goGithubSite = () => chrome.tabs.create(PROJECT_URL_OBJECT);
 
@@ -43,18 +42,22 @@ const Popup = () => {
         <button onClick={goGithubSite}>
           <img src={chrome.runtime.getURL(logo)} className="App-logo" alt="logo" />
         </button>
-        <p>
-          Edit <code>pages/popup/src/Popup.tsx</code>
-        </p>
-        <button
-          className={cn(
-            'mt-4 rounded px-4 py-1 font-bold shadow hover:scale-105',
-            isLight ? 'bg-blue-200 text-black' : 'bg-gray-700 text-white',
-          )}
-          onClick={injectContentScript}>
-          {t('injectButton')}
-        </button>
-        <ToggleButton>{t('toggleTheme')}</ToggleButton>
+        <div className="App-copy-block">
+          <h1 className="App-title">Bookmark Workspace</h1>
+          <p className="App-copy">{t('popupDescription')}</p>
+          <p className="App-copy">{t('popupActionDescription')}</p>
+        </div>
+        <div className="App-actions">
+          <button
+            className={cn(
+              'rounded px-4 py-1 font-bold shadow hover:scale-105',
+              isLight ? 'bg-blue-200 text-black' : 'bg-gray-700 text-white',
+            )}
+            onClick={injectContentScript}>
+            {t('injectButton')}
+          </button>
+          <ToggleButton>{t('toggleTheme')}</ToggleButton>
+        </div>
       </header>
     </div>
   );

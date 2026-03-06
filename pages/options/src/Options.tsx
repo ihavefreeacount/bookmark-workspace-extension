@@ -15,9 +15,8 @@ const Options = () => {
       <button onClick={goGithubSite}>
         <img src={chrome.runtime.getURL(logo)} className="App-logo" alt="logo" />
       </button>
-      <p>
-        Edit <code>pages/options/src/Options.tsx</code>
-      </p>
+      <h1 className="App-title">{t('optionsTitle')}</h1>
+      <p className="App-copy">{t('optionsDescription')}</p>
       <ToggleButton onClick={exampleThemeStorage.toggle}>{t('toggleTheme')}</ToggleButton>
     </div>
   );

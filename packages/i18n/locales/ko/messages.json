@@ -8,10 +8,28 @@
     "message": "크롬 익스텐션 보일러플레이트"
   },
   "toggleTheme": {
-    "message": "테마 변경"
+    "message": "테마 전환"
   },
   "injectButton": {
-    "message": "콘텐츠 스크립트를 삽입하려면 클릭하세요."
+    "message": "페이지 패널 표시"
+  },
+  "popupDescription": {
+    "message": "새 탭에서 워크스페이스와 컬렉션을 관리하세요."
+  },
+  "popupActionDescription": {
+    "message": "필요하면 현재 페이지에 패널을 표시할 수 있습니다."
+  },
+  "popupActionErrorTitle": {
+    "message": "패널을 표시할 수 없습니다"
+  },
+  "popupActionErrorDescription": {
+    "message": "이 페이지에서는 패널을 표시할 수 없습니다."
+  },
+  "optionsTitle": {
+    "message": "환경 설정"
+  },
+  "optionsDescription": {
+    "message": "확장 기능의 테마를 전환합니다."
   },
   "greeting": {
     "description": "인사 메시지",
