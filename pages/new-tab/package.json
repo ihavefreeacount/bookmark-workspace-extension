@@ -17,7 +17,8 @@
     "lint": "eslint .",
     "lint:fix": "pnpm lint --fix",
     "format": "prettier . --write --ignore-path ../../.prettierignore",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@extension/i18n": "workspace:*",
@@ -27,6 +28,8 @@
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-context-menu": "^2.2.16",
     "cmdk": "^1.1.1",
+    "es-hangul": "^2.3.8",
+    "fuse.js": "^7.1.0",
     "lucide-react": "^0.575.0",
     "motion": "^12.34.3"
   },
@@ -34,7 +37,8 @@
     "@extension/tailwindcss-config": "workspace:*",
     "@extension/tsconfig": "workspace:*",
     "@extension/vite-config": "workspace:*",
-    "sass": "^1.89.0"
+    "sass": "^1.89.0",
+    "vitest": "^4.0.18"
   },
   "postcss": {
     "plugins": {

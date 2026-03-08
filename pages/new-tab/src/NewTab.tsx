@@ -9,11 +9,15 @@ import {
   rememberFavicon,
   rememberFaviconFailure,
 } from '@src/lib/favicon-resolver';
+import { buildBookmarkSearchRecords, createBookmarkSearchIndex, searchBookmarks } from '@src/lib/search/engine';
+import { includesNormalizedQuery } from '@src/lib/search/normalize';
 import { Command } from 'cmdk';
 import { Globe, Link2, PanelLeft, PanelRight, Plus, Search } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, motion, Reorder, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import type { SearchRange } from '@src/lib/search/types';
+import type { ReactNode } from 'react';
 import '@src/NewTab.css';
 
 type BookmarkNode = chrome.bookmarks.BookmarkTreeNode;
@@ -24,15 +28,6 @@ type CollectionSummary = {
   id: string;
   title: string;
   links: BookmarkNode[];
-};
-
-type CommandLink = {
-  key: string;
-  title: string;
-  url?: string;
-  domain: string;
-  workspace: string;
-  collection: string;
 };
 
 type DeleteTarget =
@@ -105,6 +100,54 @@ const isValidBookmarkUrl = (value: string) => {
   } catch {
     return false;
   }
+};
+
+const mergeRanges = (ranges: readonly SearchRange[]) => {
+  if (!ranges.length) return [];
+
+  const sorted = [...ranges].sort((left, right) => left[0] - right[0]);
+  const merged: SearchRange[] = [sorted[0]];
+
+  for (const [start, end] of sorted.slice(1)) {
+    const current = merged[merged.length - 1];
+    if (!current) continue;
+
+    if (start <= current[1] + 1) {
+      merged[merged.length - 1] = [current[0], Math.max(current[1], end)];
+      continue;
+    }
+
+    merged.push([start, end]);
+  }
+
+  return merged;
+};
+
+const renderHighlightedText = (text: string, ranges: readonly SearchRange[]) => {
+  if (!text || !ranges.length) return text;
+
+  const mergedRanges = mergeRanges(ranges);
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+
+  for (const [start, end] of mergedRanges) {
+    if (start > cursor) {
+      nodes.push(text.slice(cursor, start));
+    }
+
+    nodes.push(
+      <mark key={`${text}-${start}-${end}`} className="cmdk-highlight">
+        {text.slice(start, end + 1)}
+      </mark>,
+    );
+    cursor = end + 1;
+  }
+
+  if (cursor < text.length) {
+    nodes.push(text.slice(cursor));
+  }
+
+  return nodes;
 };
 
 const NewTab = () => {
@@ -315,25 +358,12 @@ const NewTab = () => {
     return out;
   }, [workspaces, selectedWorkspace]);
 
-  const commandLinks = useMemo<CommandLink[]>(() => {
-    const out: CommandLink[] = [];
-    for (const ws of workspaces) {
-      for (const col of ws.children || []) {
-        if (!isFolder(col)) continue;
-        for (const link of (col.children || []).filter(n => !!n.url)) {
-          out.push({
-            key: `${col.id}-${link.id}`,
-            title: link.title || link.url || 'Untitled',
-            url: link.url,
-            domain: getDomain(link.url),
-            workspace: ws.title || '',
-            collection: col.title || 'Untitled',
-          });
-        }
-      }
-    }
-    return out;
-  }, [workspaces]);
+  const bookmarkSearchRecords = useMemo(() => buildBookmarkSearchRecords(workspaces), [workspaces]);
+  const bookmarkSearchIndex = useMemo(() => createBookmarkSearchIndex(bookmarkSearchRecords), [bookmarkSearchRecords]);
+  const bookmarkHits = useMemo(
+    () => searchBookmarks(bookmarkSearchIndex, commandQuery),
+    [bookmarkSearchIndex, commandQuery],
+  );
 
   useEffect(() => {
     if (!addBookmarkMorphState) return;
@@ -827,6 +857,42 @@ const NewTab = () => {
     closeCommand();
     Promise.resolve(fn()).catch(console.error);
   };
+
+  const filteredQuickActions = [
+    {
+      key: 'create-collection',
+      label: '컬렉션 만들기',
+      searchText: 'collection create add 컬렉션 만들기 추가',
+      onSelect: () => runCommand(() => openCollectionInlineInput()),
+    },
+    {
+      key: 'create-workspace',
+      label: '워크스페이스 만들기',
+      searchText: 'workspace create add 워크스페이스 만들기 추가',
+      onSelect: () => runCommand(() => openWorkspaceInlineInput()),
+    },
+    {
+      key: 'save-window',
+      label: '현재 창을 컬렉션으로 저장',
+      searchText: 'save window collection 현재 창 컬렉션 저장',
+      onSelect: () => runCommand(() => saveWindow()),
+    },
+  ].filter(action => includesNormalizedQuery(commandQuery, action.label, action.searchText));
+
+  const filteredWorkspaces = workspaces.filter(ws => includesNormalizedQuery(commandQuery, ws.title || ''));
+  const filteredCollections = collections.filter(col =>
+    includesNormalizedQuery(
+      commandQuery,
+      col.workspace,
+      col.title,
+      ...col.links.map(link => link.title || link.url || ''),
+    ),
+  );
+  const hasCommandResults =
+    filteredQuickActions.length > 0 ||
+    filteredWorkspaces.length > 0 ||
+    filteredCollections.length > 0 ||
+    bookmarkHits.length > 0;
 
   return (
     <div className="nt-root">
@@ -1617,6 +1683,7 @@ const NewTab = () => {
         overlayClassName="cmdk-overlay"
         label="커맨드 팔레트"
         modal={false}
+        shouldFilter={false}
         open={commandOpen}
         onOpenChange={open => {
           setCommandOpen(open);
@@ -1629,86 +1696,99 @@ const NewTab = () => {
           onValueChange={setCommandQuery}
         />
         <Command.List className="cmdk-list">
-          <Command.Empty className="cmdk-empty">결과가 없습니다.</Command.Empty>
+          {!hasCommandResults && <div className="cmdk-empty">결과가 없습니다.</div>}
 
-          <Command.Group heading="빠른 작업" className="cmdk-group">
-            <Command.Item className="cmdk-item" onSelect={() => runCommand(() => openCollectionInlineInput())}>
-              컬렉션 만들기
-            </Command.Item>
-            <Command.Item className="cmdk-item" onSelect={() => runCommand(() => openWorkspaceInlineInput())}>
-              워크스페이스 만들기
-            </Command.Item>
-            <Command.Item className="cmdk-item" onSelect={() => runCommand(() => saveWindow())}>
-              현재 창을 컬렉션으로 저장
-            </Command.Item>
-          </Command.Group>
-
-          <Command.Group heading="워크스페이스" className="cmdk-group">
-            {workspaces.map(ws => (
-              <Command.Item
-                key={ws.id}
-                className="cmdk-item"
-                value={`workspace ${ws.title}`}
-                onSelect={() =>
-                  runCommand(() => {
-                    setWorkspaceId(ws.id);
-                  })
-                }>
-                {workspaceId === ws.id ? '✓ ' : ''}
-                {ws.title}
-              </Command.Item>
-            ))}
-          </Command.Group>
-
-          <Command.Group heading="컬렉션 열기" className="cmdk-group">
-            {collections.map(col => (
-              <Command.Item
-                key={`${col.id}-group`}
-                className="cmdk-item"
-                value={`${col.workspace} ${col.title} tab group`}
-                onSelect={() => runCommand(() => openCollection(col.id, 'group'))}>
-                {col.title} · 탭 그룹으로 열기
-              </Command.Item>
-            ))}
-            {collections.map(col => (
-              <Command.Item
-                key={`${col.id}-window`}
-                className="cmdk-item"
-                value={`${col.workspace} ${col.title} window`}
-                onSelect={() => runCommand(() => openCollection(col.id, 'new-window'))}>
-                {col.title} · 새 창으로 열기
-              </Command.Item>
-            ))}
-          </Command.Group>
-
-          <Command.Group heading="저장된 북마크" className="cmdk-group">
-            {commandLinks.map(link => {
-              const icon = getFaviconSrcByKey(link.key, link.url);
-              const isFallbackIcon = icon === getFallbackFavicon();
-              return (
-                <Command.Item
-                  key={link.key}
-                  className="cmdk-item"
-                  value={`${link.title} ${link.url || ''} ${link.domain} ${link.workspace} ${link.collection}`}
-                  onSelect={() => runCommand(() => openLink(link.url))}>
-                  {isFallbackIcon ? (
-                    <span className="fav-fallback" aria-hidden>
-                      <Link2 size={14} />
-                    </span>
-                  ) : (
-                    <img
-                      className="fav"
-                      src={icon}
-                      alt=""
-                      onError={() => onFaviconErrorByKey(link.key, link.url)}
-                      onLoad={e => rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)}
-                    />
-                  )}
-                  <span className="cmdk-item-text">{link.title}</span>
+          {filteredQuickActions.length > 0 && (
+            <Command.Group heading="빠른 작업" className="cmdk-group">
+              {filteredQuickActions.map(action => (
+                <Command.Item key={action.key} className="cmdk-item" onSelect={action.onSelect} value={action.label}>
+                  <span className="cmdk-item-text">{action.label}</span>
                 </Command.Item>
-              );
-            })}
-          </Command.Group>
+              ))}
+            </Command.Group>
+          )}
+
+          {filteredWorkspaces.length > 0 && (
+            <Command.Group heading="워크스페이스" className="cmdk-group">
+              {filteredWorkspaces.map(ws => (
+                <Command.Item
+                  key={ws.id}
+                  className="cmdk-item"
+                  value={`workspace ${ws.title}`}
+                  onSelect={() =>
+                    runCommand(() => {
+                      setWorkspaceId(ws.id);
+                    })
+                  }>
+                  {workspaceId === ws.id ? '✓ ' : ''}
+                  {ws.title}
+                </Command.Item>
+              ))}
+            </Command.Group>
+          )}
+
+          {filteredCollections.length > 0 && (
+            <Command.Group heading="컬렉션 열기" className="cmdk-group">
+              {filteredCollections.map(col => (
+                <Command.Item
+                  key={`${col.id}-group`}
+                  className="cmdk-item"
+                  value={`${col.workspace} ${col.title} tab group`}
+                  onSelect={() => runCommand(() => openCollection(col.id, 'group'))}>
+                  {col.title} · 탭 그룹으로 열기
+                </Command.Item>
+              ))}
+              {filteredCollections.map(col => (
+                <Command.Item
+                  key={`${col.id}-window`}
+                  className="cmdk-item"
+                  value={`${col.workspace} ${col.title} window`}
+                  onSelect={() => runCommand(() => openCollection(col.id, 'new-window'))}>
+                  {col.title} · 새 창으로 열기
+                </Command.Item>
+              ))}
+            </Command.Group>
+          )}
+
+          {bookmarkHits.length > 0 && (
+            <Command.Group heading="저장된 북마크" className="cmdk-group">
+              {bookmarkHits.map(hit => {
+                const icon = getFaviconSrcByKey(hit.record.key, hit.record.url);
+                const isFallbackIcon = icon === getFallbackFavicon();
+                return (
+                  <Command.Item
+                    key={hit.record.key}
+                    className="cmdk-item"
+                    value={`${hit.record.title} ${hit.record.url} ${hit.record.domain} ${hit.record.workspaceTitle} ${hit.record.collectionTitle}`}
+                    onSelect={() => runCommand(() => openLink(hit.record.url))}>
+                    {isFallbackIcon ? (
+                      <span className="fav-fallback" aria-hidden>
+                        <Link2 size={14} />
+                      </span>
+                    ) : (
+                      <img
+                        className="fav"
+                        src={icon}
+                        alt=""
+                        onError={() => onFaviconErrorByKey(hit.record.key, hit.record.url)}
+                        onLoad={e => rememberFavicon(hit.record.url, (e.currentTarget as HTMLImageElement).src)}
+                      />
+                    )}
+                    <div className="cmdk-item-body">
+                      <div className="cmdk-item-title-row">
+                        <span className="cmdk-item-text">
+                          {renderHighlightedText(hit.record.title, hit.titleRanges)}
+                        </span>
+                      </div>
+                      <span className="cmdk-item-subtitle">
+                        {renderHighlightedText(hit.secondaryText, hit.secondaryRanges)}
+                      </span>
+                    </div>
+                  </Command.Item>
+                );
+              })}
+            </Command.Group>
+          )}
         </Command.List>
       </Command.Dialog>
     </div>

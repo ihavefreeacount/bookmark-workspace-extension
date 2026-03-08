@@ -994,7 +994,7 @@ button.active {
 
 .cmdk-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   border: none;
   border-radius: 10px;
@@ -1003,11 +1003,42 @@ button.active {
   cursor: pointer;
 }
 
+.cmdk-item-body {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cmdk-item-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .cmdk-item-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.cmdk-item-subtitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.cmdk-highlight {
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 3px;
+  padding: 0;
 }
 
 .cmdk-item[data-selected='true'] {

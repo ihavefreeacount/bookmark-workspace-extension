@@ -27,6 +27,9 @@
     "type-check": {
       "cache": false
     },
+    "test": {
+      "cache": false
+    },
     "lint": {
       "cache": false
     },
