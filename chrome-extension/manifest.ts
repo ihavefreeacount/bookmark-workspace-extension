@@ -6,7 +6,7 @@ const packageJson = JSON.parse(readFileSync('./package.json', 'utf8'));
 const manifest = {
   manifest_version: 3,
   default_locale: 'en',
-  name: 'Bookmark Workspace',
+  name: 'My Little Bookmark',
   version: packageJson.version,
   description: 'New-tab workspace manager with bookmarks as source of truth.',
   permissions: ['bookmarks', 'tabs', 'tabGroups', 'storage', 'favicon'],

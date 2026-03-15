@@ -21,7 +21,7 @@ describe('Webextension New Tab', () => {
     await browser.url(newTabUrl);
 
     const seeded = await browser.executeAsync(done => {
-      const rootFolder = 'Bookmark Workspace';
+      const rootFolder = 'My Little Bookmark';
 
       void (async () => {
         const nodes = await chrome.bookmarks.search({ title: rootFolder });

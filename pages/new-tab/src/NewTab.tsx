@@ -67,7 +67,7 @@ type RecentlyCreatedBookmark = {
   bookmarkId: string;
 } | null;
 
-const ROOT_FOLDER = 'Bookmark Workspace';
+const ROOT_FOLDER = 'My Little Bookmark';
 const DND_TAB_MIME = 'application/x-bookmark-workspace-tab';
 const DND_COLLECTION_MIME = 'application/x-bookmark-workspace-collection';
 const LS_SELECTED_SPACE = 'bw:selected-space-id';

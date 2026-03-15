@@ -43,7 +43,7 @@ const Popup = () => {
           <img src={chrome.runtime.getURL(logo)} className="App-logo" alt="logo" />
         </button>
         <div className="App-copy-block">
-          <h1 className="App-title">Bookmark Workspace</h1>
+          <h1 className="App-title">My Little Bookmark</h1>
           <p className="App-copy">{t('popupDescription')}</p>
           <p className="App-copy">{t('popupActionDescription')}</p>
         </div>
