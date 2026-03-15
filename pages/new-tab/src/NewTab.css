@@ -10,7 +10,7 @@
   --radius-sm: 12px;
   --radius-md: 16px;
   --radius-lg: 20px;
-  --shadow-1: 0 4px 24px rgba(0, 0, 0, 0.04);
+  --shadow-1: 0 4px 24px rgba(0, 0, 0, 0.03);
   --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.06);
 }
 
@@ -256,7 +256,6 @@ button.active {
 
 .link-list li + li,
 .tab-list li + li {
-  border-top: 1px solid #f0f0f3;
   padding-top: 6px;
 }
 
@@ -449,8 +448,8 @@ button.active {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 12px;
+  grid-template-columns: 1fr;
 }
 
 .col-card {
@@ -460,6 +459,27 @@ button.active {
   background: var(--bg-surface);
   cursor: grab;
   box-shadow: var(--shadow-1);
+}
+
+.link-list {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0 0;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .link-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1200px) {
+  .link-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .col-card.inline-input-card {
@@ -595,6 +615,7 @@ button.active {
   gap: 6px;
   border-radius: var(--radius-sm);
   padding: 16px 14px;
+  border: none;
 }
 
 .bookmark-item.is-editing {

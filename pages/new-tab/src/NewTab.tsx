@@ -1139,20 +1139,10 @@ const NewTab = () => {
               {collections.map(col => {
                 const addStateForCollection =
                   addBookmarkMorphState?.collectionId === col.id ? addBookmarkMorphState : null;
-                const recentlyAddedForCollection =
-                  recentlyCreatedBookmark?.collectionId === col.id ? recentlyCreatedBookmark : null;
                 const addPendingTitle =
                   addStateForCollection?.draftTitle.trim() || addStateForCollection?.draftUrl || '새 북마크';
                 const addPendingDomain = getDomain(addStateForCollection?.draftUrl);
-                const visibleLinks = (() => {
-                  const base = col.links.slice(0, 8);
-                  if (!recentlyAddedForCollection) return base;
-                  if (base.some(link => link.id === recentlyAddedForCollection.bookmarkId)) return base;
-                  const target = col.links.find(link => link.id === recentlyAddedForCollection.bookmarkId);
-                  if (!target) return base;
-                  if (base.length < 8) return [...base, target];
-                  return [...base.slice(0, 7), target];
-                })();
+                const visibleLinks = col.links;
 
                 return (
                   <ContextMenu.Root
