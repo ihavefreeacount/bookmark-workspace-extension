@@ -1065,3 +1065,66 @@ button.active {
 .cmdk-item[data-selected='true'] {
   background: #f5f6fa;
 }
+
+/* ── Empty State ── */
+@keyframes empty-state-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 72px 32px;
+  min-height: 380px;
+  animation: empty-state-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.empty-state-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.empty-state-desc {
+  margin: 0 0 32px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  max-width: none;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.empty-state-btn {
+  background: rgb(239, 243, 251);
+  color: rgb(0, 122, 255);
+  border: none;
+  border-radius: 999px;
+  padding: 9px 20px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    background-color 120ms ease;
+}
+
+.empty-state-btn:hover {
+  background: rgb(220, 232, 250);
+}
+
+.empty-state-btn:active {
+  background: rgb(205, 221, 247);
+}
