@@ -1,5 +1,17 @@
+import { closestCenter, DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import * as ContextMenu from '@radix-ui/react-context-menu';
+import { removeBookmarkAfterUserConsent, removeBookmarkTreeAfterUserConsent } from '@src/lib/bookmark-consent';
+import { moveBookmarkNodeFromUserAction, updateBookmarkNodeFromUserAction } from '@src/lib/bookmark-user-actions';
+import {
+  getClosestBookmarkDropIndicator,
+  moveIdToIndex,
+  orderByIds,
+  reconcileBookmarkOrders,
+  reconcileOrderIds,
+} from '@src/lib/dnd/sortable-helpers';
 import {
   getFallbackFavicon,
   getCachedFavicon,
@@ -13,9 +25,11 @@ import { buildBookmarkSearchRecords, createBookmarkSearchIndex, searchBookmarks 
 import { includesNormalizedQuery } from '@src/lib/search/normalize';
 import { Command } from 'cmdk';
 import { Globe, Link2, PanelLeft, PanelRight, Plus, Search } from 'lucide-react';
-import { AnimatePresence, LayoutGroup, motion, Reorder, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion, Reorder, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import type { DragEndEvent, DragMoveEvent, DragStartEvent, Modifier } from '@dnd-kit/core';
+import type { BookmarkDropSlot, OrderedIdsByCollection, PointerCoordinates } from '@src/lib/dnd/sortable-helpers';
 import type { SearchRange } from '@src/lib/search/types';
 import type { ReactNode } from 'react';
 import '@src/NewTab.css';
@@ -67,14 +81,73 @@ type RecentlyCreatedBookmark = {
   bookmarkId: string;
 } | null;
 
+type BookmarkDragData = {
+  kind: 'bookmark';
+  bookmarkId: string;
+  collectionId: string;
+};
+
+type BookmarkDropPreview = {
+  collectionId: string;
+  targetIndex: number;
+  renderId: string;
+  side: 'left' | 'right';
+};
+
+type BookmarkDragOverlayData = {
+  title: string;
+  domain: string;
+};
+
 const ROOT_FOLDER = 'My Little Bookmark';
 const DND_TAB_MIME = 'application/x-bookmark-workspace-tab';
 const DND_COLLECTION_MIME = 'application/x-bookmark-workspace-collection';
 const LS_SELECTED_SPACE = 'bw:selected-space-id';
 const LS_LEFT_COLLAPSED = 'bw:left-collapsed';
 const LS_RIGHT_COLLAPSED = 'bw:right-collapsed';
+const BOOKMARK_DND_PREFIX = 'bookmark';
+const BOOKMARK_DRAG_AVATAR_OFFSET = { x: 14, y: -10 } as const;
 
 const isFolder = (node: BookmarkNode) => !node.url;
+const getBookmarkDndId = (id: string) => `${BOOKMARK_DND_PREFIX}:${id}`;
+const isEventFromBookmarkArea = (target: EventTarget | null) =>
+  target instanceof HTMLElement && !!target.closest('.link-list');
+const getPointerCoordinates = (event: Event | null | undefined): PointerCoordinates | null => {
+  if (!event) return null;
+
+  if ('changedTouches' in event) {
+    const changedTouches = (event as TouchEvent).changedTouches;
+    if (changedTouches.length === 0) return null;
+    const touch = changedTouches[0];
+    return { x: touch.clientX, y: touch.clientY };
+  }
+
+  if ('touches' in event) {
+    const touches = (event as TouchEvent).touches;
+    if (touches.length === 0) return null;
+    const touch = touches[0];
+    return { x: touch.clientX, y: touch.clientY };
+  }
+
+  const mouseEvent = event as MouseEvent;
+  if (typeof mouseEvent.clientX !== 'number' || typeof mouseEvent.clientY !== 'number') return null;
+  return {
+    x: mouseEvent.clientX,
+    y: mouseEvent.clientY,
+  };
+};
+
+const getDragPointerCoordinates = (
+  origin: PointerCoordinates | null,
+  delta: { x: number; y: number },
+): PointerCoordinates | null => {
+  if (!origin) return null;
+
+  return {
+    x: origin.x + delta.x,
+    y: origin.y + delta.y,
+  };
+};
 
 const ensureRootFolder = async () => {
   const nodes = await chrome.bookmarks.search({ title: ROOT_FOLDER });
@@ -150,6 +223,54 @@ const renderHighlightedText = (text: string, ranges: readonly SearchRange[]) => 
   return nodes;
 };
 
+const SortableBookmarkItem = ({
+  id,
+  data,
+  disabled,
+  className,
+  children,
+  motionProps,
+}: {
+  id: string;
+  data: BookmarkDragData;
+  disabled?: boolean;
+  className?: string;
+  children: ReactNode;
+  motionProps?: Record<string, unknown>;
+}) => {
+  const { attributes, listeners, isDragging, setNodeRef, transform, transition } = useSortable({
+    id,
+    data,
+    disabled,
+  });
+
+  return (
+    <motion.li
+      ref={setNodeRef}
+      className={[className, isDragging ? 'is-dragging' : ''].filter(Boolean).join(' ')}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      {...attributes}
+      {...listeners}
+      {...motionProps}>
+      {children}
+    </motion.li>
+  );
+};
+
+const BookmarkDropLine = ({ side }: { side: 'left' | 'right' }) => (
+  <div className={`bookmark-drop-line ${side}`} aria-hidden />
+);
+
+const BookmarkDragAvatar = ({ title, domain }: BookmarkDragOverlayData) => (
+  <div className="bookmark-drag-avatar" aria-hidden>
+    <div className="bookmark-drag-avatar-title">{title}</div>
+    <div className="bookmark-drag-avatar-domain">{domain}</div>
+  </div>
+);
+
 const NewTab = () => {
   const shouldReduceMotion = useReducedMotion();
   const [tree, setTree] = useState<BookmarkNode | null>(null);
@@ -177,8 +298,11 @@ const NewTab = () => {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [activeContext, setActiveContext] = useState<ActiveContext>(null);
   const [workspaceOrderIds, setWorkspaceOrderIds] = useState<string[]>([]);
+  const [bookmarkOrderIdsByCollection, setBookmarkOrderIdsByCollection] = useState<OrderedIdsByCollection>({});
   const [draggingWorkspaceId, setDraggingWorkspaceId] = useState<string | null>(null);
   const [workspaceReorderBusy, setWorkspaceReorderBusy] = useState(false);
+  const [activeBookmarkDrag, setActiveBookmarkDrag] = useState<BookmarkDragData | null>(null);
+  const [bookmarkDropPreview, setBookmarkDropPreview] = useState<BookmarkDropPreview | null>(null);
   const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(null);
   const [editingWorkspaceName, setEditingWorkspaceName] = useState('');
   const [editingWorkspaceBusy, setEditingWorkspaceBusy] = useState(false);
@@ -198,6 +322,8 @@ const NewTab = () => {
   const openFlyoutTimerRef = useRef<number | null>(null);
   const closeFlyoutTimerRef = useRef<number | null>(null);
   const suppressBookmarkRefreshRef = useRef(false);
+  const bookmarkSlotRectsRef = useRef<Record<string, BookmarkDropSlot[]>>({});
+  const bookmarkDragPointerOriginRef = useRef<PointerCoordinates | null>(null);
 
   const addingBookmarkCollectionId = addBookmarkMorphState?.collectionId ?? null;
   const addingBookmarkTitle = addBookmarkMorphState?.draftTitle ?? '';
@@ -206,6 +332,31 @@ const NewTab = () => {
   const addingBookmarkEditing = addBookmarkMorphState?.phase === 'editing';
   const [addingBookmarkInvalid, setAddingBookmarkInvalid] = useState(false);
   const [addingBookmarkShakeToken, setAddingBookmarkShakeToken] = useState(0);
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+  );
+  const bookmarkOverlayModifier = useCallback<Modifier>(
+    ({ active, activeNodeRect, transform }) => {
+      const data = active?.data.current as BookmarkDragData | undefined;
+      const origin = bookmarkDragPointerOriginRef.current;
+      const initialRect = active?.rect.current.initial ?? activeNodeRect;
+
+      if (!data || data.kind !== 'bookmark' || !origin || !initialRect) {
+        return transform;
+      }
+
+      return {
+        ...transform,
+        x: transform.x + origin.x - initialRect.left + BOOKMARK_DRAG_AVATAR_OFFSET.x,
+        y: transform.y + origin.y - initialRect.top + BOOKMARK_DRAG_AVATAR_OFFSET.y,
+      };
+    },
+    [bookmarkDragPointerOriginRef],
+  );
 
   const refresh = useCallback(async () => {
     const next = await loadTree();
@@ -331,13 +482,7 @@ const NewTab = () => {
   }, []);
 
   const workspaces = useMemo(() => (tree?.children || []).filter(isFolder), [tree]);
-  const orderedWorkspaces = useMemo(() => {
-    if (!workspaceOrderIds.length) return workspaces;
-    const map = new Map(workspaces.map(ws => [ws.id, ws]));
-    const kept = workspaceOrderIds.map(id => map.get(id)).filter((v): v is BookmarkNode => !!v);
-    const appended = workspaces.filter(ws => !workspaceOrderIds.includes(ws.id));
-    return [...kept, ...appended];
-  }, [workspaces, workspaceOrderIds]);
+  const orderedWorkspaces = useMemo(() => orderByIds(workspaces, workspaceOrderIds), [workspaces, workspaceOrderIds]);
   const selectedWorkspace = useMemo(() => workspaces.find(w => w.id === workspaceId), [workspaces, workspaceId]);
 
   const collections = useMemo(() => {
@@ -357,6 +502,28 @@ const NewTab = () => {
     }
     return out;
   }, [workspaces, selectedWorkspace]);
+  const orderedBookmarkIds = useMemo(
+    () =>
+      Object.fromEntries(
+        collections.map(col => [col.id, bookmarkOrderIdsByCollection[col.id] || col.links.map(link => link.id)]),
+      ) as OrderedIdsByCollection,
+    [collections, bookmarkOrderIdsByCollection],
+  );
+  const bookmarkDragOverlayById = useMemo(
+    () =>
+      new Map(
+        collections.flatMap(col =>
+          col.links.map(link => [
+            link.id,
+            {
+              title: link.title || link.url || 'Untitled',
+              domain: getDomain(link.url),
+            },
+          ]),
+        ),
+      ),
+    [collections],
+  );
 
   const bookmarkSearchRecords = useMemo(() => buildBookmarkSearchRecords(workspaces), [workspaces]);
   const bookmarkSearchIndex = useMemo(() => createBookmarkSearchIndex(bookmarkSearchRecords), [bookmarkSearchRecords]);
@@ -415,14 +582,25 @@ const NewTab = () => {
   }, [addingBookmarkInvalid, addingBookmarkShakeToken, shouldReduceMotion]);
 
   useEffect(() => {
-    setWorkspaceOrderIds(prev => {
-      const nextIds = workspaces.map(ws => ws.id);
-      if (!prev.length) return nextIds;
-      const kept = prev.filter(id => nextIds.includes(id));
-      const added = nextIds.filter(id => !kept.includes(id));
-      return [...kept, ...added];
-    });
+    setWorkspaceOrderIds(prev =>
+      reconcileOrderIds(
+        prev,
+        workspaces.map(ws => ws.id),
+      ),
+    );
   }, [workspaces]);
+
+  useEffect(() => {
+    setBookmarkOrderIdsByCollection(prev =>
+      reconcileBookmarkOrders(
+        prev,
+        collections.map(col => ({
+          id: col.id,
+          bookmarkIds: col.links.map(link => link.id),
+        })),
+      ),
+    );
+  }, [collections]);
 
   const openWorkspaceInlineInput = () => {
     setLeftCollapsed(false);
@@ -513,13 +691,13 @@ const NewTab = () => {
     if (!deleteTarget || deleteBusy) return;
     setDeleteBusy(true);
     if (deleteTarget.kind === 'workspace') {
-      await chrome.bookmarks.removeTree(deleteTarget.id);
+      await removeBookmarkTreeAfterUserConsent(deleteTarget.id);
       setToast('워크스페이스를 삭제했습니다.');
     } else if (deleteTarget.kind === 'collection') {
-      await chrome.bookmarks.removeTree(deleteTarget.id);
+      await removeBookmarkTreeAfterUserConsent(deleteTarget.id);
       setToast('컬렉션을 삭제했습니다.');
     } else {
-      await chrome.bookmarks.remove(deleteTarget.id);
+      await removeBookmarkAfterUserConsent(deleteTarget.id);
       setToast('북마크를 삭제했습니다.');
     }
     await refresh();
@@ -601,7 +779,7 @@ const NewTab = () => {
     }
 
     setEditingBookmarkBusy(true);
-    await chrome.bookmarks.update(editingBookmark.id, {
+    await updateBookmarkNodeFromUserAction(editingBookmark.id, {
       title: nextTitle || nextUrl,
       url: nextUrl,
     });
@@ -751,7 +929,7 @@ const NewTab = () => {
     }
 
     setEditingWorkspaceBusy(true);
-    await chrome.bookmarks.update(editingWorkspaceId, { title: nextName });
+    await updateBookmarkNodeFromUserAction(editingWorkspaceId, { title: nextName });
     await refresh();
     cancelWorkspaceEdit();
     setToast('워크스페이스 이름을 변경했습니다.');
@@ -762,7 +940,7 @@ const NewTab = () => {
     setWorkspaceReorderBusy(true);
     for (let i = 0; i < workspaceOrderIds.length; i += 1) {
       const id = workspaceOrderIds[i];
-      await chrome.bookmarks.move(id, { parentId: tree.id, index: i });
+      await moveBookmarkNodeFromUserAction(id, { parentId: tree.id, index: i });
     }
     await refresh();
     setWorkspaceReorderBusy(false);
@@ -795,7 +973,7 @@ const NewTab = () => {
     const payload = JSON.parse(raw) as { collectionId?: string; title?: string; workspaceId?: string };
     if (!payload.collectionId || !payload.workspaceId || payload.workspaceId === targetWorkspace.id) return;
 
-    await chrome.bookmarks.move(payload.collectionId, { parentId: targetWorkspace.id });
+    await moveBookmarkNodeFromUserAction(payload.collectionId, { parentId: targetWorkspace.id });
     setToast(
       `${
         payload.title ? `'${payload.title}' 컬렉션을` : '컬렉션을'
@@ -848,6 +1026,96 @@ const NewTab = () => {
     await refresh();
   };
 
+  const handleBookmarkDragStart = ({ active, activatorEvent }: DragStartEvent) => {
+    const data = active.data.current as BookmarkDragData | undefined;
+    if (!data || data.kind !== 'bookmark') return;
+    setActiveBookmarkDrag(data);
+    setBookmarkDropPreview(null);
+    bookmarkDragPointerOriginRef.current = getPointerCoordinates(activatorEvent);
+    setActiveContext(null);
+  };
+
+  const handleBookmarkDragCancel = () => {
+    setActiveBookmarkDrag(null);
+    setBookmarkDropPreview(null);
+    bookmarkDragPointerOriginRef.current = null;
+  };
+
+  const handleBookmarkDragMove = ({ active, delta }: DragMoveEvent) => {
+    const activeData = active.data.current as BookmarkDragData | undefined;
+    if (!activeData || activeData.kind !== 'bookmark') {
+      setBookmarkDropPreview(null);
+      return;
+    }
+
+    const pointer = getDragPointerCoordinates(bookmarkDragPointerOriginRef.current, delta);
+    if (!pointer) {
+      setBookmarkDropPreview(null);
+      return;
+    }
+
+    const slots = bookmarkSlotRectsRef.current[activeData.collectionId] || [];
+    const ids = orderedBookmarkIds[activeData.collectionId] || [];
+    const indicator = getClosestBookmarkDropIndicator({
+      slots,
+      pointer,
+      activeId: activeData.bookmarkId,
+      ids,
+    });
+
+    if (!indicator) {
+      setBookmarkDropPreview(null);
+      return;
+    }
+
+    setBookmarkDropPreview({
+      collectionId: activeData.collectionId,
+      targetIndex: indicator.index,
+      renderId: indicator.renderId,
+      side: indicator.side,
+    });
+  };
+
+  const handleBookmarkDragEnd = async ({ active }: DragEndEvent) => {
+    const activeData = active.data.current as BookmarkDragData | undefined;
+
+    setActiveBookmarkDrag(null);
+    const preview = bookmarkDropPreview;
+    setBookmarkDropPreview(null);
+    bookmarkDragPointerOriginRef.current = null;
+
+    if (!activeData || activeData.kind !== 'bookmark') return;
+    if (!preview || preview.collectionId !== activeData.collectionId) return;
+
+    const collectionId = activeData.collectionId;
+    const currentOrderIds = orderedBookmarkIds[collectionId] || [];
+    const currentIndex = currentOrderIds.indexOf(activeData.bookmarkId);
+    const boundedTargetIndex = Math.max(0, Math.min(preview.targetIndex, currentOrderIds.length - 1));
+
+    if (currentIndex < 0 || currentIndex === boundedTargetIndex) return;
+
+    const nextOrderIds = moveIdToIndex(currentOrderIds, activeData.bookmarkId, boundedTargetIndex);
+    const resolvedIndex = nextOrderIds.indexOf(activeData.bookmarkId);
+
+    setBookmarkOrderIdsByCollection(prev => ({
+      ...prev,
+      [collectionId]: nextOrderIds,
+    }));
+
+    try {
+      await moveBookmarkNodeFromUserAction(activeData.bookmarkId, {
+        parentId: collectionId,
+        index: resolvedIndex,
+      });
+      await refresh();
+      setToast('북마크 순서를 변경했습니다.');
+    } catch (error) {
+      console.error(error);
+      await refresh();
+      setToast('북마크 순서를 변경하지 못했습니다.');
+    }
+  };
+
   const closeCommand = () => {
     setCommandOpen(false);
     setCommandQuery('');
@@ -893,6 +1161,10 @@ const NewTab = () => {
     filteredWorkspaces.length > 0 ||
     filteredCollections.length > 0 ||
     bookmarkHits.length > 0;
+  const activeBookmarkOverlay =
+    activeBookmarkDrag && activeBookmarkDrag.kind === 'bookmark'
+      ? bookmarkDragOverlayById.get(activeBookmarkDrag.bookmarkId) || null
+      : null;
 
   return (
     <div className="nt-root">
@@ -1108,474 +1380,617 @@ const NewTab = () => {
               </button>
             </motion.div>
           ) : (
-            <div className="grid">
-              <AnimatePresence initial={false} mode="popLayout">
-                {collectionInlineOpen && (
-                  <motion.article
-                    key="inline-collection-input"
-                    className={`col-card inline-input-card ${collectionInlineHideDuringExit ? 'is-hiding' : ''}`}
-                    layout
-                    initial={shouldReduceMotion ? false : { scale: 0.985, y: -8 }}
-                    animate={shouldReduceMotion ? { scale: 1, y: 0 } : { scale: 1, y: 0 }}
-                    exit={
-                      shouldReduceMotion
-                        ? { opacity: 0, transition: { duration: 0.01 } }
-                        : { opacity: 0, scale: 0.992, y: -4, transition: { duration: 0.12, ease: 'easeOut' } }
-                    }
-                    transition={shouldReduceMotion ? { duration: 0.01 } : { duration: 0.18, ease: 'easeOut' }}>
-                    <div className="col-head">
-                      <input
-                        ref={collectionInlineRef}
-                        className="col-inline-input"
-                        type="text"
-                        placeholder="새 컬렉션 이름..."
-                        value={collectionInlineName}
-                        onChange={e => setCollectionInlineName(e.currentTarget.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleBookmarkDragStart}
+              onDragMove={handleBookmarkDragMove}
+              onDragCancel={handleBookmarkDragCancel}
+              onDragEnd={handleBookmarkDragEnd}>
+              <div className="grid">
+                <AnimatePresence initial={false} mode="popLayout">
+                  {collectionInlineOpen && (
+                    <motion.article
+                      key="inline-collection-input"
+                      className={`col-card inline-input-card ${collectionInlineHideDuringExit ? 'is-hiding' : ''}`}
+                      layout
+                      initial={shouldReduceMotion ? false : { scale: 0.985, y: -8 }}
+                      animate={shouldReduceMotion ? { scale: 1, y: 0 } : { scale: 1, y: 0 }}
+                      exit={
+                        shouldReduceMotion
+                          ? { opacity: 0, transition: { duration: 0.01 } }
+                          : { opacity: 0, scale: 0.992, y: -4, transition: { duration: 0.12, ease: 'easeOut' } }
+                      }
+                      transition={shouldReduceMotion ? { duration: 0.01 } : { duration: 0.18, ease: 'easeOut' }}>
+                      <div className="col-head">
+                        <input
+                          ref={collectionInlineRef}
+                          className="col-inline-input"
+                          type="text"
+                          placeholder="새 컬렉션 이름..."
+                          value={collectionInlineName}
+                          onChange={e => setCollectionInlineName(e.currentTarget.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void submitCollectionInlineInput();
+                            } else if (e.key === 'Escape') {
+                              e.preventDefault();
+                              closeCollectionInlineInput({ hideDuringExit: true });
+                            }
+                          }}
+                          onBlur={() => {
                             void submitCollectionInlineInput();
-                          } else if (e.key === 'Escape') {
-                            e.preventDefault();
-                            closeCollectionInlineInput({ hideDuringExit: true });
-                          }
-                        }}
-                        onBlur={() => {
-                          void submitCollectionInlineInput();
-                        }}
-                        disabled={collectionInlineBusy}
-                      />
-                    </div>
-                  </motion.article>
-                )}
-              </AnimatePresence>
-              <AnimatePresence key={`collections-${workspaceId || 'all'}`} initial={false}>
-                {collections.map(col => {
-                  const addStateForCollection =
-                    addBookmarkMorphState?.collectionId === col.id ? addBookmarkMorphState : null;
-                  const addPendingTitle =
-                    addStateForCollection?.draftTitle.trim() || addStateForCollection?.draftUrl || '새 북마크';
-                  const addPendingDomain = getDomain(addStateForCollection?.draftUrl);
-                  const visibleLinks = col.links;
+                          }}
+                          disabled={collectionInlineBusy}
+                        />
+                      </div>
+                    </motion.article>
+                  )}
+                </AnimatePresence>
+                <AnimatePresence key={`collections-${workspaceId || 'all'}`} initial={false}>
+                  {collections.map(col => {
+                    const addStateForCollection =
+                      addBookmarkMorphState?.collectionId === col.id ? addBookmarkMorphState : null;
+                    const addPendingTitle =
+                      addStateForCollection?.draftTitle.trim() || addStateForCollection?.draftUrl || '새 북마크';
+                    const addPendingDomain = getDomain(addStateForCollection?.draftUrl);
+                    const visibleLinks = orderByIds(col.links, orderedBookmarkIds[col.id] || []);
+                    const disableOtherCollections = !!activeBookmarkDrag && activeBookmarkDrag.collectionId !== col.id;
 
-                  return (
-                    <ContextMenu.Root
-                      modal={false}
-                      key={col.id}
-                      onOpenChange={open =>
-                        setActiveContext(prev =>
-                          open
-                            ? { kind: 'collection', id: col.id }
-                            : prev?.kind === 'collection' && prev.id === col.id
-                              ? null
-                              : prev,
-                        )
-                      }>
-                      <ContextMenu.Trigger asChild>
-                        <motion.article
-                          className={`col-card ${dropCollectionId === col.id ? 'drop-target' : ''} ${
-                            activeContext?.kind === 'collection' && activeContext.id === col.id ? 'context-active' : ''
-                          }`}
-                          layout="position"
-                          initial={shouldReduceMotion ? false : { opacity: 0, y: -6 }}
-                          animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-                          exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -10 }}
-                          transition={
-                            shouldReduceMotion
-                              ? { duration: 0.01 }
-                              : {
-                                  y: { duration: 0.2, ease: 'easeOut' },
-                                  opacity: { duration: 0.18, ease: 'easeOut' },
-                                  layout: { type: 'spring', stiffness: 430, damping: 36 },
-                                }
-                          }
-                          draggable
-                          onDragStart={e => onDragCollectionStart(e as unknown as React.DragEvent, col)}
-                          onDragEnd={() => {
-                            setDropWorkspaceId(null);
-                            setDropCollectionId(null);
-                            setDragKind(null);
-                          }}
-                          onDragOver={e => {
-                            if (dragKind !== 'tab') return;
-                            e.preventDefault();
-                            setDropCollectionId(col.id);
-                          }}
-                          onDragLeave={() => setDropCollectionId(null)}
-                          onDrop={e => onDropTabToCollection(e, col.id)}>
-                          <div className="col-head">
-                            <h3 className="col-title">{col.title}</h3>
-                          </div>
-                          <ul className="link-list">
-                            <LayoutGroup id={`collection-links-${col.id}`}>
-                              <AnimatePresence initial={false}>
-                                {visibleLinks.map((link, linkIndex) => {
-                                  const icon = getFaviconSrc(link);
-                                  const isFallbackIcon = icon === getFallbackFavicon();
-                                  const isNewlyAdded =
-                                    recentlyCreatedBookmark?.collectionId === col.id &&
-                                    recentlyCreatedBookmark.bookmarkId === link.id;
-                                  const linkTitle = link.title || link.url || 'Untitled';
-                                  const linkDomain = getDomain(link.url);
-                                  return (
-                                    <motion.li
-                                      key={link.id}
-                                      layout
-                                      initial={
-                                        isNewlyAdded ? (shouldReduceMotion ? false : { opacity: 0, y: 14 }) : false
-                                      }
-                                      animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-                                      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
-                                      transition={
-                                        isNewlyAdded
-                                          ? shouldReduceMotion
-                                            ? { duration: 0.01 }
-                                            : { duration: 0.28, ease: 'easeOut' }
-                                          : shouldReduceMotion
-                                            ? { duration: 0.01 }
-                                            : { duration: 0.16, ease: 'easeOut' }
-                                      }>
-                                      <ContextMenu.Root
-                                        modal={false}
-                                        onOpenChange={open =>
-                                          setActiveContext(prev =>
-                                            open
-                                              ? { kind: 'bookmark', id: link.id }
-                                              : prev?.kind === 'bookmark' && prev.id === link.id
-                                                ? null
-                                                : prev,
-                                          )
-                                        }>
-                                        <ContextMenu.Trigger asChild>
-                                          {editingBookmark?.id === link.id ? (
-                                            <div className="bookmark-item is-editing">
-                                              {isFallbackIcon ? (
-                                                <span className="fav-fallback" aria-hidden>
-                                                  <Link2 size={14} />
-                                                </span>
-                                              ) : (
-                                                <img
-                                                  className="fav"
-                                                  src={icon}
-                                                  alt=""
-                                                  onError={() => onFaviconError(link)}
-                                                  onLoad={e =>
-                                                    rememberFavicon(link.url, (e.currentTarget as HTMLImageElement).src)
-                                                  }
-                                                />
-                                              )}
-                                              <span className="link-main">
-                                                <input
-                                                  ref={editingTitleRef}
-                                                  className="bookmark-edit-input title"
-                                                  value={editingTitle}
-                                                  onChange={e => setEditingTitle(e.currentTarget.value)}
-                                                  onKeyDown={e => {
-                                                    if (e.key === 'Enter') {
-                                                      e.preventDefault();
-                                                      void saveBookmarkEdit();
-                                                    } else if (e.key === 'Escape') {
-                                                      e.preventDefault();
-                                                      cancelBookmarkEdit();
-                                                    }
-                                                  }}
-                                                  onBlur={() => {
-                                                    setTimeout(() => {
-                                                      const active = document.activeElement;
-                                                      if (
-                                                        active === editingTitleRef.current ||
-                                                        active === editingUrlRef.current
-                                                      )
-                                                        return;
-                                                      void saveBookmarkEdit();
-                                                    }, 0);
-                                                  }}
-                                                  placeholder="제목"
-                                                  disabled={editingBookmarkBusy}
-                                                />
-                                                <input
-                                                  ref={editingUrlRef}
-                                                  className="bookmark-edit-input url"
-                                                  value={editingUrl}
-                                                  onChange={e => setEditingUrl(e.currentTarget.value)}
-                                                  onKeyDown={e => {
-                                                    if (e.key === 'Enter') {
-                                                      e.preventDefault();
-                                                      void saveBookmarkEdit();
-                                                    } else if (e.key === 'Escape') {
-                                                      e.preventDefault();
-                                                      cancelBookmarkEdit();
-                                                    }
-                                                  }}
-                                                  onBlur={() => {
-                                                    setTimeout(() => {
-                                                      const active = document.activeElement;
-                                                      if (
-                                                        active === editingTitleRef.current ||
-                                                        active === editingUrlRef.current
-                                                      )
-                                                        return;
-                                                      void saveBookmarkEdit();
-                                                    }, 0);
-                                                  }}
-                                                  placeholder="https://"
-                                                  disabled={editingBookmarkBusy}
-                                                />
-                                              </span>
-                                            </div>
-                                          ) : (
-                                            <motion.button
-                                              className={`link-row ${
-                                                activeContext?.kind === 'bookmark' && activeContext.id === link.id
-                                                  ? 'context-active'
-                                                  : ''
-                                              }`}
-                                              onClick={() => openLink(link.url)}
-                                              title={link.url || ''}>
-                                              <motion.span className="bookmark-icon-shell">
-                                                <AnimatePresence initial={false} mode="wait">
-                                                  {isFallbackIcon ? (
-                                                    <motion.span
-                                                      key="fallback"
-                                                      className="fav-fallback bookmark-icon-layer"
-                                                      aria-hidden
-                                                      initial={shouldReduceMotion ? false : { opacity: 0 }}
-                                                      animate={{ opacity: 1 }}
-                                                      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0 }}
-                                                      transition={{ duration: shouldReduceMotion ? 0.01 : 0.14 }}>
-                                                      <Link2 size={14} />
-                                                    </motion.span>
-                                                  ) : (
-                                                    <motion.img
-                                                      key={icon}
-                                                      className="fav bookmark-icon-layer"
-                                                      src={icon}
-                                                      alt=""
-                                                      onError={() => onFaviconError(link)}
-                                                      onLoad={e =>
-                                                        rememberFavicon(
-                                                          link.url,
-                                                          (e.currentTarget as HTMLImageElement).src,
-                                                        )
-                                                      }
-                                                      initial={shouldReduceMotion ? false : { opacity: 0 }}
-                                                      animate={{ opacity: 1 }}
-                                                      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0 }}
-                                                      transition={{ duration: shouldReduceMotion ? 0.01 : 0.2 }}
-                                                    />
-                                                  )}
-                                                </AnimatePresence>
-                                              </motion.span>
-                                              <motion.span className="link-main">
-                                                <motion.span className="link-title">{linkTitle}</motion.span>
-                                                <motion.span className="link-domain">{linkDomain}</motion.span>
-                                              </motion.span>
-                                            </motion.button>
-                                          )}
-                                        </ContextMenu.Trigger>
-                                        <ContextMenu.Portal>
-                                          <ContextMenu.Content className="col-context-menu">
-                                            <div className="col-context-label">
-                                              북마크 메뉴 · {link.title || getDomain(link.url) || 'Untitled'}
-                                            </div>
-                                            <ContextMenu.Separator className="col-context-separator" />
-                                            <ContextMenu.Item
-                                              className="col-context-item"
-                                              onSelect={() => void openLink(link.url)}>
-                                              새 탭에서 열기
-                                            </ContextMenu.Item>
-                                            <ContextMenu.Item
-                                              className="col-context-item"
-                                              onSelect={() => void copyLink(link.url)}>
-                                              링크 복사
-                                            </ContextMenu.Item>
-                                            <ContextMenu.Item
-                                              className="col-context-item"
-                                              onSelect={() => startBookmarkEdit(link, col.id, linkIndex)}>
-                                              수정
-                                            </ContextMenu.Item>
-                                            <ContextMenu.Separator className="col-context-separator" />
-                                            <ContextMenu.Item
-                                              className="col-context-item col-context-item-destructive"
-                                              onSelect={() =>
-                                                setDeleteTarget({
-                                                  kind: 'bookmark',
-                                                  id: link.id,
-                                                  title: link.title || link.url || 'Untitled',
-                                                  url: link.url,
-                                                })
-                                              }>
-                                              북마크 삭제
-                                            </ContextMenu.Item>
-                                          </ContextMenu.Content>
-                                        </ContextMenu.Portal>
-                                      </ContextMenu.Root>
-                                    </motion.li>
+                    return (
+                      <ContextMenu.Root
+                        modal={false}
+                        key={col.id}
+                        onOpenChange={open =>
+                          setActiveContext(prev =>
+                            open
+                              ? { kind: 'collection', id: col.id }
+                              : prev?.kind === 'collection' && prev.id === col.id
+                                ? null
+                                : prev,
+                          )
+                        }>
+                        <ContextMenu.Trigger asChild>
+                          <motion.article
+                            className={`col-card ${dropCollectionId === col.id ? 'drop-target' : ''} ${
+                              activeContext?.kind === 'collection' && activeContext.id === col.id
+                                ? 'context-active'
+                                : ''
+                            }`}
+                            layout="position"
+                            initial={shouldReduceMotion ? false : { opacity: 0, y: -6 }}
+                            animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -10 }}
+                            transition={
+                              shouldReduceMotion
+                                ? { duration: 0.01 }
+                                : {
+                                    y: { duration: 0.2, ease: 'easeOut' },
+                                    opacity: { duration: 0.18, ease: 'easeOut' },
+                                    layout: { type: 'spring', stiffness: 430, damping: 36 },
+                                  }
+                            }
+                            draggable
+                            onDragStart={e => {
+                              if (isEventFromBookmarkArea(e.target)) {
+                                e.preventDefault();
+                                return;
+                              }
+                              onDragCollectionStart(e as unknown as React.DragEvent, col);
+                            }}
+                            onDragEnd={() => {
+                              setDropWorkspaceId(null);
+                              setDropCollectionId(null);
+                              setDragKind(null);
+                            }}
+                            onDragOver={e => {
+                              if (dragKind !== 'tab') return;
+                              e.preventDefault();
+                              setDropCollectionId(col.id);
+                            }}
+                            onDragLeave={() => setDropCollectionId(null)}
+                            onDrop={e => onDropTabToCollection(e, col.id)}>
+                            <div className="col-head">
+                              <h3 className="col-title">{col.title}</h3>
+                            </div>
+                            <SortableContext
+                              items={visibleLinks.map(link => getBookmarkDndId(link.id))}
+                              strategy={rectSortingStrategy}>
+                              <ul
+                                className="link-list"
+                                ref={node => {
+                                  if (!node) {
+                                    delete bookmarkSlotRectsRef.current[col.id];
+                                    return;
+                                  }
+
+                                  const itemElements = Array.from(
+                                    node.querySelectorAll<HTMLElement>('[data-bookmark-id]'),
                                   );
-                                })}
-                                <motion.li
-                                  key={`${col.id}-inline-bookmark`}
-                                  className="bookmark-inline-add-slot"
-                                  layout
-                                  transition={
-                                    shouldReduceMotion
-                                      ? { duration: 0.01 }
-                                      : { type: 'spring', stiffness: 460, damping: 38 }
-                                  }>
-                                  {addStateForCollection?.phase === 'editing' ? (
-                                    <div
-                                      ref={addingBookmarkFormRef}
-                                      className={`bookmark-item bookmark-inline-add-form is-editing ${
-                                        addingBookmarkInvalid ? 'is-invalid' : ''
-                                      }`}>
-                                      <span className="fav-fallback" aria-hidden>
-                                        <Plus size={14} />
-                                      </span>
-                                      <span className="link-main">
-                                        <div className="bookmark-add-text-shell">
-                                          <input
-                                            ref={addingBookmarkTitleRef}
-                                            className="bookmark-edit-input title inline-add-input"
-                                            value={addingBookmarkTitle}
-                                            onChange={e =>
-                                              updateAddBookmarkDraft({ draftTitle: e.currentTarget.value })
-                                            }
-                                            onKeyDown={e => {
-                                              if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                void submitBookmarkInlineInput();
-                                              } else if (e.key === 'Escape') {
-                                                e.preventDefault();
-                                                closeBookmarkInlineInput();
-                                              }
-                                            }}
-                                            onBlur={() => {
-                                              setTimeout(() => {
-                                                const active = document.activeElement;
-                                                if (
-                                                  active === addingBookmarkTitleRef.current ||
-                                                  active === addingBookmarkUrlRef.current
-                                                )
-                                                  return;
-                                                void submitBookmarkInlineInput();
-                                              }, 0);
-                                            }}
-                                            placeholder="북마크 제목"
-                                            disabled={addingBookmarkBusy}
-                                          />
-                                        </div>
-                                        <div className="bookmark-add-text-shell">
-                                          <input
-                                            ref={addingBookmarkUrlRef}
-                                            className="bookmark-edit-input url inline-add-input"
-                                            value={addingBookmarkUrl}
-                                            onChange={e => updateAddBookmarkDraft({ draftUrl: e.currentTarget.value })}
-                                            onKeyDown={e => {
-                                              if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                void submitBookmarkInlineInput();
-                                              } else if (e.key === 'Escape') {
-                                                e.preventDefault();
-                                                closeBookmarkInlineInput();
-                                              }
-                                            }}
-                                            onBlur={() => {
-                                              setTimeout(() => {
-                                                const active = document.activeElement;
-                                                if (
-                                                  active === addingBookmarkTitleRef.current ||
-                                                  active === addingBookmarkUrlRef.current
-                                                )
-                                                  return;
-                                                void submitBookmarkInlineInput();
-                                              }, 0);
-                                            }}
-                                            placeholder="https://"
-                                            disabled={addingBookmarkBusy}
-                                          />
-                                        </div>
-                                      </span>
-                                    </div>
-                                  ) : addStateForCollection?.phase === 'committing' ? (
-                                    <div className="bookmark-item bookmark-inline-add-pending">
-                                      <span className="fav-fallback" aria-hidden>
-                                        <Plus size={14} />
-                                      </span>
-                                      <span className="link-main">
-                                        <span className="link-title bookmark-inline-add-title">{addPendingTitle}</span>
-                                        <span className="link-domain bookmark-inline-add-hint">
-                                          {addPendingDomain || addStateForCollection.draftUrl || '북마크 저장 중...'}
+
+                                  if (!itemElements.length) {
+                                    bookmarkSlotRectsRef.current[col.id] = [];
+                                    return;
+                                  }
+
+                                  const listRect = node.getBoundingClientRect();
+                                  const firstRect = itemElements[0]?.getBoundingClientRect();
+                                  const lastRect = itemElements[itemElements.length - 1]?.getBoundingClientRect();
+                                  const slots: BookmarkDropSlot[] = [];
+
+                                  if (firstRect && itemElements[0]) {
+                                    slots.push({
+                                      index: 0,
+                                      renderId: itemElements[0].dataset.bookmarkId || '',
+                                      side: 'left',
+                                      rect: {
+                                        left: listRect.left + 12,
+                                        top: listRect.top,
+                                        width: 8,
+                                        height: Math.max(
+                                          firstRect.top - listRect.top + firstRect.height,
+                                          firstRect.height,
+                                        ),
+                                      },
+                                    });
+                                  }
+
+                                  itemElements.forEach((element, index) => {
+                                    const bookmarkId = element.dataset.bookmarkId || '';
+                                    const rect = element.getBoundingClientRect();
+
+                                    slots.push({
+                                      index,
+                                      renderId: bookmarkId,
+                                      side: 'left',
+                                      rect: {
+                                        left: rect.left - 4,
+                                        top: rect.top,
+                                        width: 8,
+                                        height: rect.height,
+                                      },
+                                    });
+
+                                    slots.push({
+                                      index: index + 1,
+                                      renderId: bookmarkId,
+                                      side: 'right',
+                                      rect: {
+                                        left: rect.right - 4,
+                                        top: rect.top,
+                                        width: 8,
+                                        height: rect.height,
+                                      },
+                                    });
+                                  });
+
+                                  if (lastRect && itemElements[itemElements.length - 1]) {
+                                    slots.push({
+                                      index: itemElements.length,
+                                      renderId: itemElements[itemElements.length - 1].dataset.bookmarkId || '',
+                                      side: 'right',
+                                      rect: {
+                                        left: lastRect.right - 4,
+                                        top: lastRect.top,
+                                        width: 8,
+                                        height: Math.max(listRect.bottom - lastRect.top, lastRect.height),
+                                      },
+                                    });
+                                  }
+
+                                  bookmarkSlotRectsRef.current[col.id] = slots;
+                                }}>
+                                <AnimatePresence initial={false}>
+                                  {visibleLinks.map((link, linkIndex) => {
+                                    const icon = getFaviconSrc(link);
+                                    const isFallbackIcon = icon === getFallbackFavicon();
+                                    const isNewlyAdded =
+                                      recentlyCreatedBookmark?.collectionId === col.id &&
+                                      recentlyCreatedBookmark.bookmarkId === link.id;
+                                    const linkTitle = link.title || link.url || 'Untitled';
+                                    const linkDomain = getDomain(link.url);
+                                    const showLeftPreview =
+                                      bookmarkDropPreview?.collectionId === col.id &&
+                                      bookmarkDropPreview.renderId === link.id &&
+                                      bookmarkDropPreview.side === 'left';
+                                    const showRightPreview =
+                                      bookmarkDropPreview?.collectionId === col.id &&
+                                      bookmarkDropPreview.renderId === link.id &&
+                                      bookmarkDropPreview.side === 'right';
+
+                                    return (
+                                      <SortableBookmarkItem
+                                        key={link.id}
+                                        id={getBookmarkDndId(link.id)}
+                                        data={{
+                                          kind: 'bookmark',
+                                          bookmarkId: link.id,
+                                          collectionId: col.id,
+                                        }}
+                                        className="bookmark-sortable-item"
+                                        disabled={editingBookmark?.id === link.id || disableOtherCollections}
+                                        motionProps={{
+                                          'data-bookmark-id': link.id,
+                                          'data-collection-id': col.id,
+                                          initial: isNewlyAdded
+                                            ? shouldReduceMotion
+                                              ? false
+                                              : { opacity: 0, y: 14 }
+                                            : false,
+                                          animate: shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 },
+                                          exit: shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 },
+                                          transition: isNewlyAdded
+                                            ? shouldReduceMotion
+                                              ? { duration: 0.01 }
+                                              : { duration: 0.28, ease: 'easeOut' }
+                                            : shouldReduceMotion
+                                              ? { duration: 0.01 }
+                                              : { duration: 0.16, ease: 'easeOut' },
+                                        }}>
+                                        {showLeftPreview && <BookmarkDropLine side="left" />}
+                                        <ContextMenu.Root
+                                          modal={false}
+                                          onOpenChange={open =>
+                                            setActiveContext(prev =>
+                                              open
+                                                ? { kind: 'bookmark', id: link.id }
+                                                : prev?.kind === 'bookmark' && prev.id === link.id
+                                                  ? null
+                                                  : prev,
+                                            )
+                                          }>
+                                          <ContextMenu.Trigger asChild>
+                                            {editingBookmark?.id === link.id ? (
+                                              <div className="bookmark-item is-editing">
+                                                {isFallbackIcon ? (
+                                                  <span className="fav-fallback" aria-hidden>
+                                                    <Link2 size={14} />
+                                                  </span>
+                                                ) : (
+                                                  <img
+                                                    className="fav"
+                                                    src={icon}
+                                                    alt=""
+                                                    draggable={false}
+                                                    onError={() => onFaviconError(link)}
+                                                    onLoad={e =>
+                                                      rememberFavicon(
+                                                        link.url,
+                                                        (e.currentTarget as HTMLImageElement).src,
+                                                      )
+                                                    }
+                                                  />
+                                                )}
+                                                <span className="link-main">
+                                                  <input
+                                                    ref={editingTitleRef}
+                                                    className="bookmark-edit-input title"
+                                                    value={editingTitle}
+                                                    onChange={e => setEditingTitle(e.currentTarget.value)}
+                                                    onKeyDown={e => {
+                                                      if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        void saveBookmarkEdit();
+                                                      } else if (e.key === 'Escape') {
+                                                        e.preventDefault();
+                                                        cancelBookmarkEdit();
+                                                      }
+                                                    }}
+                                                    onBlur={() => {
+                                                      setTimeout(() => {
+                                                        const active = document.activeElement;
+                                                        if (
+                                                          active === editingTitleRef.current ||
+                                                          active === editingUrlRef.current
+                                                        )
+                                                          return;
+                                                        void saveBookmarkEdit();
+                                                      }, 0);
+                                                    }}
+                                                    onPointerDown={e => e.stopPropagation()}
+                                                    placeholder="제목"
+                                                    disabled={editingBookmarkBusy}
+                                                  />
+                                                  <input
+                                                    ref={editingUrlRef}
+                                                    className="bookmark-edit-input url"
+                                                    value={editingUrl}
+                                                    onChange={e => setEditingUrl(e.currentTarget.value)}
+                                                    onKeyDown={e => {
+                                                      if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        void saveBookmarkEdit();
+                                                      } else if (e.key === 'Escape') {
+                                                        e.preventDefault();
+                                                        cancelBookmarkEdit();
+                                                      }
+                                                    }}
+                                                    onBlur={() => {
+                                                      setTimeout(() => {
+                                                        const active = document.activeElement;
+                                                        if (
+                                                          active === editingTitleRef.current ||
+                                                          active === editingUrlRef.current
+                                                        )
+                                                          return;
+                                                        void saveBookmarkEdit();
+                                                      }, 0);
+                                                    }}
+                                                    onPointerDown={e => e.stopPropagation()}
+                                                    placeholder="https://"
+                                                    disabled={editingBookmarkBusy}
+                                                  />
+                                                </span>
+                                              </div>
+                                            ) : (
+                                              <motion.button
+                                                className={`link-row ${
+                                                  activeContext?.kind === 'bookmark' && activeContext.id === link.id
+                                                    ? 'context-active'
+                                                    : ''
+                                                }`}
+                                                draggable={false}
+                                                onClick={() => openLink(link.url)}
+                                                title={link.url || ''}>
+                                                <motion.span className="bookmark-icon-shell">
+                                                  <AnimatePresence initial={false} mode="wait">
+                                                    {isFallbackIcon ? (
+                                                      <motion.span
+                                                        key="fallback"
+                                                        className="fav-fallback bookmark-icon-layer"
+                                                        aria-hidden
+                                                        initial={shouldReduceMotion ? false : { opacity: 0 }}
+                                                        animate={{ opacity: 1 }}
+                                                        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0 }}
+                                                        transition={{ duration: shouldReduceMotion ? 0.01 : 0.14 }}>
+                                                        <Link2 size={14} />
+                                                      </motion.span>
+                                                    ) : (
+                                                      <motion.img
+                                                        key={icon}
+                                                        className="fav bookmark-icon-layer"
+                                                        src={icon}
+                                                        alt=""
+                                                        draggable={false}
+                                                        onError={() => onFaviconError(link)}
+                                                        onLoad={e =>
+                                                          rememberFavicon(
+                                                            link.url,
+                                                            (e.currentTarget as HTMLImageElement).src,
+                                                          )
+                                                        }
+                                                        initial={shouldReduceMotion ? false : { opacity: 0 }}
+                                                        animate={{ opacity: 1 }}
+                                                        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0 }}
+                                                        transition={{ duration: shouldReduceMotion ? 0.01 : 0.2 }}
+                                                      />
+                                                    )}
+                                                  </AnimatePresence>
+                                                </motion.span>
+                                                <motion.span className="link-main">
+                                                  <motion.span className="link-title">{linkTitle}</motion.span>
+                                                  <motion.span className="link-domain">{linkDomain}</motion.span>
+                                                </motion.span>
+                                              </motion.button>
+                                            )}
+                                          </ContextMenu.Trigger>
+                                          <ContextMenu.Portal>
+                                            <ContextMenu.Content className="col-context-menu">
+                                              <div className="col-context-label">
+                                                북마크 메뉴 · {link.title || getDomain(link.url) || 'Untitled'}
+                                              </div>
+                                              <ContextMenu.Separator className="col-context-separator" />
+                                              <ContextMenu.Item
+                                                className="col-context-item"
+                                                onSelect={() => void openLink(link.url)}>
+                                                새 탭에서 열기
+                                              </ContextMenu.Item>
+                                              <ContextMenu.Item
+                                                className="col-context-item"
+                                                onSelect={() => void copyLink(link.url)}>
+                                                링크 복사
+                                              </ContextMenu.Item>
+                                              <ContextMenu.Item
+                                                className="col-context-item"
+                                                onSelect={() => startBookmarkEdit(link, col.id, linkIndex)}>
+                                                수정
+                                              </ContextMenu.Item>
+                                              <ContextMenu.Separator className="col-context-separator" />
+                                              <ContextMenu.Item
+                                                className="col-context-item col-context-item-destructive"
+                                                onSelect={() =>
+                                                  setDeleteTarget({
+                                                    kind: 'bookmark',
+                                                    id: link.id,
+                                                    title: link.title || link.url || 'Untitled',
+                                                    url: link.url,
+                                                  })
+                                                }>
+                                                북마크 삭제
+                                              </ContextMenu.Item>
+                                            </ContextMenu.Content>
+                                          </ContextMenu.Portal>
+                                        </ContextMenu.Root>
+                                        {showRightPreview && <BookmarkDropLine side="right" />}
+                                      </SortableBookmarkItem>
+                                    );
+                                  })}
+                                  <motion.li
+                                    key={`${col.id}-inline-bookmark`}
+                                    className="bookmark-inline-add-slot"
+                                    layout
+                                    transition={
+                                      shouldReduceMotion
+                                        ? { duration: 0.01 }
+                                        : { type: 'spring', stiffness: 460, damping: 38 }
+                                    }>
+                                    {addStateForCollection?.phase === 'editing' ? (
+                                      <div
+                                        ref={addingBookmarkFormRef}
+                                        className={`bookmark-item bookmark-inline-add-form is-editing ${
+                                          addingBookmarkInvalid ? 'is-invalid' : ''
+                                        }`}>
+                                        <span className="fav-fallback" aria-hidden>
+                                          <Plus size={14} />
                                         </span>
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      className="bookmark-item bookmark-inline-add-trigger"
-                                      onClick={() => openBookmarkInlineInput(col.id)}>
-                                      <span className="fav-fallback" aria-hidden>
-                                        <Plus size={14} />
-                                      </span>
-                                      <span className="link-main">
-                                        <span className="link-title bookmark-inline-add-title">새 북마크 추가...</span>
-                                        <span className="link-domain bookmark-inline-add-hint">URL 붙여넣기</span>
-                                      </span>
-                                    </button>
-                                  )}
-                                </motion.li>
-                              </AnimatePresence>
-                            </LayoutGroup>
-                          </ul>
-                        </motion.article>
-                      </ContextMenu.Trigger>
-                      <ContextMenu.Portal>
-                        <ContextMenu.Content className="col-context-menu" alignOffset={-4}>
-                          <div className="col-context-label">컬렉션 메뉴 · {col.title}</div>
-                          <ContextMenu.Separator className="col-context-separator" />
-                          <ContextMenu.Item
-                            className="col-context-item"
-                            onSelect={() => void openCollection(col.id, 'group')}>
-                            탭 그룹으로 열기
-                          </ContextMenu.Item>
-                          <ContextMenu.Item
-                            className="col-context-item"
-                            onSelect={() => void openCollection(col.id, 'new-window')}>
-                            새 창으로 열기
-                          </ContextMenu.Item>
-                          <ContextMenu.Separator className="col-context-separator" />
-                          <ContextMenu.Item
-                            className="col-context-item col-context-item-destructive"
-                            onSelect={() =>
-                              setDeleteTarget({
-                                kind: 'collection',
-                                id: col.id,
-                                title: col.title,
-                              })
-                            }>
-                            컬렉션 삭제
-                          </ContextMenu.Item>
-                        </ContextMenu.Content>
-                      </ContextMenu.Portal>
-                    </ContextMenu.Root>
-                  );
-                })}
-              </AnimatePresence>
-              {tree !== null && collections.length === 0 && !collectionInlineOpen && (
-                <motion.div
-                  key="empty-collection"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="empty-state">
-                  <h2 className="empty-state-title">
-                    {selectedWorkspace ? `'${selectedWorkspace.title}'에 컬렉션이 없습니다` : '컬렉션이 없습니다'}
-                  </h2>
-                  <p className="empty-state-desc">컬렉션을 추가해서 북마크를 그룹으로 묶어보세요</p>
-                  <button className="empty-state-btn" onClick={openCollectionInlineInput}>
-                    컬렉션 추가하기
-                  </button>
-                </motion.div>
-              )}
-            </div>
+                                        <span className="link-main">
+                                          <div className="bookmark-add-text-shell">
+                                            <input
+                                              ref={addingBookmarkTitleRef}
+                                              className="bookmark-edit-input title inline-add-input"
+                                              value={addingBookmarkTitle}
+                                              onChange={e =>
+                                                updateAddBookmarkDraft({ draftTitle: e.currentTarget.value })
+                                              }
+                                              onKeyDown={e => {
+                                                if (e.key === 'Enter') {
+                                                  e.preventDefault();
+                                                  void submitBookmarkInlineInput();
+                                                } else if (e.key === 'Escape') {
+                                                  e.preventDefault();
+                                                  closeBookmarkInlineInput();
+                                                }
+                                              }}
+                                              onBlur={() => {
+                                                setTimeout(() => {
+                                                  const active = document.activeElement;
+                                                  if (
+                                                    active === addingBookmarkTitleRef.current ||
+                                                    active === addingBookmarkUrlRef.current
+                                                  )
+                                                    return;
+                                                  void submitBookmarkInlineInput();
+                                                }, 0);
+                                              }}
+                                              placeholder="북마크 제목"
+                                              disabled={addingBookmarkBusy}
+                                            />
+                                          </div>
+                                          <div className="bookmark-add-text-shell">
+                                            <input
+                                              ref={addingBookmarkUrlRef}
+                                              className="bookmark-edit-input url inline-add-input"
+                                              value={addingBookmarkUrl}
+                                              onChange={e =>
+                                                updateAddBookmarkDraft({ draftUrl: e.currentTarget.value })
+                                              }
+                                              onKeyDown={e => {
+                                                if (e.key === 'Enter') {
+                                                  e.preventDefault();
+                                                  void submitBookmarkInlineInput();
+                                                } else if (e.key === 'Escape') {
+                                                  e.preventDefault();
+                                                  closeBookmarkInlineInput();
+                                                }
+                                              }}
+                                              onBlur={() => {
+                                                setTimeout(() => {
+                                                  const active = document.activeElement;
+                                                  if (
+                                                    active === addingBookmarkTitleRef.current ||
+                                                    active === addingBookmarkUrlRef.current
+                                                  )
+                                                    return;
+                                                  void submitBookmarkInlineInput();
+                                                }, 0);
+                                              }}
+                                              placeholder="https://"
+                                              disabled={addingBookmarkBusy}
+                                            />
+                                          </div>
+                                        </span>
+                                      </div>
+                                    ) : addStateForCollection?.phase === 'committing' ? (
+                                      <div className="bookmark-item bookmark-inline-add-pending">
+                                        <span className="fav-fallback" aria-hidden>
+                                          <Plus size={14} />
+                                        </span>
+                                        <span className="link-main">
+                                          <span className="link-title bookmark-inline-add-title">
+                                            {addPendingTitle}
+                                          </span>
+                                          <span className="link-domain bookmark-inline-add-hint">
+                                            {addPendingDomain || addStateForCollection.draftUrl || '북마크 저장 중...'}
+                                          </span>
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        className="bookmark-item bookmark-inline-add-trigger"
+                                        onClick={() => openBookmarkInlineInput(col.id)}>
+                                        <span className="fav-fallback" aria-hidden>
+                                          <Plus size={14} />
+                                        </span>
+                                        <span className="link-main">
+                                          <span className="link-title bookmark-inline-add-title">
+                                            새 북마크 추가...
+                                          </span>
+                                          <span className="link-domain bookmark-inline-add-hint">URL 붙여넣기</span>
+                                        </span>
+                                      </button>
+                                    )}
+                                  </motion.li>
+                                </AnimatePresence>
+                              </ul>
+                            </SortableContext>
+                          </motion.article>
+                        </ContextMenu.Trigger>
+                        <ContextMenu.Portal>
+                          <ContextMenu.Content className="col-context-menu" alignOffset={-4}>
+                            <div className="col-context-label">컬렉션 메뉴 · {col.title}</div>
+                            <ContextMenu.Separator className="col-context-separator" />
+                            <ContextMenu.Item
+                              className="col-context-item"
+                              onSelect={() => void openCollection(col.id, 'group')}>
+                              탭 그룹으로 열기
+                            </ContextMenu.Item>
+                            <ContextMenu.Item
+                              className="col-context-item"
+                              onSelect={() => void openCollection(col.id, 'new-window')}>
+                              새 창으로 열기
+                            </ContextMenu.Item>
+                            <ContextMenu.Separator className="col-context-separator" />
+                            <ContextMenu.Item
+                              className="col-context-item col-context-item-destructive"
+                              onSelect={() =>
+                                setDeleteTarget({
+                                  kind: 'collection',
+                                  id: col.id,
+                                  title: col.title,
+                                })
+                              }>
+                              컬렉션 삭제
+                            </ContextMenu.Item>
+                          </ContextMenu.Content>
+                        </ContextMenu.Portal>
+                      </ContextMenu.Root>
+                    );
+                  })}
+                </AnimatePresence>
+                {tree !== null && collections.length === 0 && !collectionInlineOpen && (
+                  <motion.div
+                    key="empty-collection"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="empty-state">
+                    <h2 className="empty-state-title">
+                      {selectedWorkspace ? `'${selectedWorkspace.title}'에 컬렉션이 없습니다` : '컬렉션이 없습니다'}
+                    </h2>
+                    <p className="empty-state-desc">컬렉션을 추가해서 북마크를 그룹으로 묶어보세요</p>
+                    <button className="empty-state-btn" onClick={openCollectionInlineInput}>
+                      컬렉션 추가하기
+                    </button>
+                  </motion.div>
+                )}
+              </div>
+              <DragOverlay dropAnimation={null} modifiers={[bookmarkOverlayModifier]}>
+                {activeBookmarkOverlay ? (
+                  <BookmarkDragAvatar title={activeBookmarkOverlay.title} domain={activeBookmarkOverlay.domain} />
+                ) : null}
+              </DragOverlay>
+            </DndContext>
           )}
         </section>
 
@@ -1705,7 +2120,6 @@ const NewTab = () => {
         className="cmdk-dialog"
         overlayClassName="cmdk-overlay"
         label="커맨드 팔레트"
-        modal={false}
         shouldFilter={false}
         open={commandOpen}
         onOpenChange={open => {

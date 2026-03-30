@@ -4,7 +4,9 @@ This project treats bookmarks as user-owned data.
 
 ## Rules
 
-- `chrome.bookmarks.move(...)` and `chrome.bookmarks.update(...)` are disallowed.
+- `chrome.bookmarks.move(...)` and `chrome.bookmarks.update(...)` are allowed only from the user-action wrapper:
+  - `pages/new-tab/src/lib/bookmark-user-actions.ts`
+- Callers must only use that wrapper for explicit user-driven interactions such as drag-and-drop or inline rename.
 - Delete APIs are allowed only with explicit user consent:
   - `chrome.bookmarks.remove(...)`
   - `chrome.bookmarks.removeTree(...)`
@@ -26,4 +28,4 @@ CI/local pre-check uses:
 
 - `scripts/guard-bookmark-immutability.sh`
 
-Build/check fails if forbidden usage is detected outside policy.
+Build/check fails if bookmark mutation APIs are detected outside the approved wrapper files.

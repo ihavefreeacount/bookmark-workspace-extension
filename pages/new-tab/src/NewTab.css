@@ -618,6 +618,79 @@ button.active {
   border: none;
 }
 
+.bookmark-sortable-item {
+  list-style: none;
+  min-width: 0;
+  position: relative;
+}
+
+.bookmark-sortable-item .link-row,
+.bookmark-sortable-item .bookmark-item {
+  cursor: grab;
+}
+
+.bookmark-sortable-item.is-dragging {
+  z-index: 4;
+}
+
+.bookmark-sortable-item.is-dragging .link-row,
+.bookmark-sortable-item.is-dragging .bookmark-item {
+  cursor: grabbing;
+  opacity: 0.32;
+}
+
+.bookmark-drop-line {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 999px;
+  background: #93c5fd;
+  box-shadow: 0 0 8px rgba(147, 197, 253, 0.18);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.bookmark-drop-line.left {
+  left: -4px;
+}
+
+.bookmark-drop-line.right {
+  right: -4px;
+}
+
+.bookmark-drag-avatar {
+  width: 192px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.12);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  pointer-events: none;
+}
+
+.bookmark-drag-avatar-title {
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bookmark-drag-avatar-domain {
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.3;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .bookmark-item.is-editing {
   background-color: rgba(0, 122, 255, 0.05);
   transition: background-color 0.2s ease;
@@ -896,6 +969,7 @@ button.active {
   inset: 0;
   background: rgba(17, 24, 39, 0.28);
   backdrop-filter: blur(1px);
+  z-index: 80;
 }
 
 .cmdk-dialog {
@@ -909,6 +983,7 @@ button.active {
   border-radius: 14px;
   box-shadow: 0 20px 50px rgba(17, 24, 39, 0.2);
   overflow: hidden;
+  z-index: 81;
 }
 
 .confirm-overlay {

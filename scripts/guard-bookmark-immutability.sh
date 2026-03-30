@@ -5,19 +5,21 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 # Policy:
-# - bookmarks.move/update are forbidden (can silently mutate user organization)
+# - bookmarks.move/update are allowed ONLY via explicit user-action wrapper file
 # - bookmarks.remove/removeTree are allowed ONLY via explicit consent wrapper file
 
 FORBIDDEN_ALWAYS='bookmarks\.(move\(|update\()'
+allowed_mutation_file='pages/new-tab/src/lib/bookmark-user-actions.ts'
 allowed_delete_file='pages/new-tab/src/lib/bookmark-consent.ts'
 
 always_matches=$(grep -RInE "$FORBIDDEN_ALWAYS" chrome-extension pages packages --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' || true)
 if [[ -n "$always_matches" ]]; then
-  echo "❌ Bookmark safety guard failed. Forbidden APIs found:"
-  echo "$always_matches"
-  echo
-  echo "bookmarks.move/update are disallowed."
-  exit 1
+  filtered=$(echo "$always_matches" | grep -v "$allowed_mutation_file" || true)
+  if [[ -n "$filtered" ]]; then
+    echo "❌ Bookmark safety guard failed. move/update APIs may only be used in: $allowed_mutation_file"
+    echo "$filtered"
+    exit 1
+  fi
 fi
 
 delete_matches=$(grep -RInE 'bookmarks\.(remove\(|removeTree\()' chrome-extension pages packages --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' || true)
