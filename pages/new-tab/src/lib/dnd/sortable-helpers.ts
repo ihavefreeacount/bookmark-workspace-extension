@@ -126,7 +126,85 @@ const getClosestBookmarkDropIndicator = ({
   };
 };
 
-export { getClosestBookmarkDropIndicator, moveIdToIndex, orderByIds, reconcileBookmarkOrders, reconcileOrderIds };
+const measureBookmarkDropSlots = (listNode: HTMLElement): BookmarkDropSlot[] => {
+  const itemElements = Array.from(listNode.querySelectorAll<HTMLElement>('[data-bookmark-id]'));
+  if (!itemElements.length) return [];
+
+  const listRect = listNode.getBoundingClientRect();
+  const firstElement = itemElements[0];
+  const lastElement = itemElements[itemElements.length - 1];
+  const firstRect = firstElement?.getBoundingClientRect();
+  const lastRect = lastElement?.getBoundingClientRect();
+  const slots: BookmarkDropSlot[] = [];
+
+  if (firstRect && firstElement) {
+    slots.push({
+      index: 0,
+      renderId: firstElement.dataset.bookmarkId || '',
+      side: 'left',
+      rect: {
+        left: listRect.left + 12,
+        top: listRect.top,
+        width: 8,
+        height: Math.max(firstRect.top - listRect.top + firstRect.height, firstRect.height),
+      },
+    });
+  }
+
+  itemElements.forEach((element, index) => {
+    const bookmarkId = element.dataset.bookmarkId || '';
+    const rect = element.getBoundingClientRect();
+
+    slots.push({
+      index,
+      renderId: bookmarkId,
+      side: 'left',
+      rect: {
+        left: rect.left - 4,
+        top: rect.top,
+        width: 8,
+        height: rect.height,
+      },
+    });
+
+    slots.push({
+      index: index + 1,
+      renderId: bookmarkId,
+      side: 'right',
+      rect: {
+        left: rect.right - 4,
+        top: rect.top,
+        width: 8,
+        height: rect.height,
+      },
+    });
+  });
+
+  if (lastRect && lastElement) {
+    slots.push({
+      index: itemElements.length,
+      renderId: lastElement.dataset.bookmarkId || '',
+      side: 'right',
+      rect: {
+        left: lastRect.right - 4,
+        top: lastRect.top,
+        width: 8,
+        height: Math.max(listRect.bottom - lastRect.top, lastRect.height),
+      },
+    });
+  }
+
+  return slots;
+};
+
+export {
+  getClosestBookmarkDropIndicator,
+  measureBookmarkDropSlots,
+  moveIdToIndex,
+  orderByIds,
+  reconcileBookmarkOrders,
+  reconcileOrderIds,
+};
 export type {
   BookmarkDropIndicator,
   BookmarkDropIndicatorSide,
