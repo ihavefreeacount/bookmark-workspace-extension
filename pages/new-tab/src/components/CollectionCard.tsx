@@ -64,8 +64,11 @@ const CollectionCard = ({
   shouldReduceMotion,
   suppressTransitions,
 }: CollectionCardProps) => {
+  const { bookmarkCollectionNodesRef, bookmarkDropPreview } = bookmarkDnd;
   const disableOtherCollections =
     !!bookmarkDnd.activeBookmarkDragCollectionId && bookmarkDnd.activeBookmarkDragCollectionId !== collection.id;
+  const isEmptyBookmarkDropTarget =
+    bookmarkDropPreview?.kind === 'empty-collection' && bookmarkDropPreview.collectionId === collection.id;
 
   return (
     <ContextMenu.Root
@@ -76,7 +79,15 @@ const CollectionCard = ({
       })}>
       <ContextMenu.Trigger asChild>
         <motion.article
-          className={`col-card ${dropCollectionId === collection.id ? 'drop-target' : ''} ${
+          ref={node => {
+            if (!node) {
+              delete bookmarkCollectionNodesRef.current[collection.id];
+              return;
+            }
+
+            bookmarkCollectionNodesRef.current[collection.id] = node;
+          }}
+          className={`col-card ${dropCollectionId === collection.id || isEmptyBookmarkDropTarget ? 'drop-target' : ''} ${
             activeContext?.kind === 'collection' && activeContext.id === collection.id ? 'context-active' : ''
           }`}
           layout={suppressTransitions ? false : 'position'}
@@ -100,7 +111,7 @@ const CollectionCard = ({
               event.preventDefault();
               return;
             }
-            onCollectionDragStart(event, collection);
+            onCollectionDragStart(event as unknown as ReactDragEvent<HTMLElement>, collection);
           }}
           onDragEnd={onCollectionDragEnd}
           onDragOver={event => {

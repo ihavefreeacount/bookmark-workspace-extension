@@ -6,7 +6,7 @@ import type {
   SensorDescriptor,
   SensorOptions,
 } from '@dnd-kit/core';
-import type { BookmarkDropSlot, OrderedIdsByCollection } from '@src/lib/dnd/sortable-helpers';
+import type { OrderedIdsByCollection } from '@src/lib/dnd/sortable-helpers';
 import type {
   ActiveContext,
   AddBookmarkMorphState,
@@ -29,9 +29,11 @@ import type {
 type BookmarkDndController = {
   activeBookmarkDragCollectionId: string | null;
   activeBookmarkOverlay: BookmarkDragOverlayData | null;
+  bookmarkCollectionNodesRef: RefObject<Record<string, HTMLElement>>;
+  bookmarkListNodesRef: RefObject<Record<string, HTMLUListElement>>;
   bookmarkDropPreview: BookmarkDropPreview | null;
   bookmarkOverlayModifier: Modifier;
-  bookmarkSlotRectsRef: RefObject<Record<string, BookmarkDropSlot[]>>;
+  orderedBookmarksByCollection: Record<string, BookmarkNode[]>;
   handleBookmarkDragCancel: () => void;
   handleBookmarkDragEnd: (event: DragEndEvent) => Promise<void> | void;
   handleBookmarkDragMove: (event: DragMoveEvent) => void;

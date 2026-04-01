@@ -1,7 +1,6 @@
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { BookmarkDropLine, SortableBookmarkItem } from '@src/components/BookmarkDnd';
-import { measureBookmarkDropSlots, orderByIds } from '@src/lib/dnd/sortable-helpers';
 import { getDomain, getFallbackFavicon, rememberFavicon } from '@src/lib/favicon-resolver';
 import { getBookmarkDndId } from '@src/lib/new-tab/helpers';
 import { Link2, Plus } from 'lucide-react';
@@ -52,7 +51,7 @@ const BookmarkList = ({
   setActiveContext,
   shouldReduceMotion,
 }: BookmarkListProps) => {
-  const { bookmarkDropPreview, bookmarkSlotRectsRef, handleBookmarkPointerDownCapture, orderedBookmarkIds } =
+  const { bookmarkDropPreview, bookmarkListNodesRef, handleBookmarkPointerDownCapture, orderedBookmarksByCollection } =
     bookmarkDnd;
   const {
     editingBookmark,
@@ -86,7 +85,7 @@ const BookmarkList = ({
   const addStateForCollection = addBookmarkMorphState?.collectionId === collection.id ? addBookmarkMorphState : null;
   const addPendingTitle = addStateForCollection?.draftTitle.trim() || addStateForCollection?.draftUrl || '새 북마크';
   const addPendingDomain = getDomain(addStateForCollection?.draftUrl);
-  const visibleLinks = orderByIds(collection.links, orderedBookmarkIds[collection.id] || []);
+  const visibleLinks = orderedBookmarksByCollection[collection.id] || collection.links;
 
   return (
     <SortableContext items={visibleLinks.map(link => getBookmarkDndId(link.id))} strategy={rectSortingStrategy}>
@@ -94,11 +93,11 @@ const BookmarkList = ({
         className="link-list"
         ref={node => {
           if (!node) {
-            delete bookmarkSlotRectsRef.current[collection.id];
+            delete bookmarkListNodesRef.current[collection.id];
             return;
           }
 
-          bookmarkSlotRectsRef.current[collection.id] = measureBookmarkDropSlots(node);
+          bookmarkListNodesRef.current[collection.id] = node;
         }}>
         <AnimatePresence initial={false}>
           {visibleLinks.map((link, linkIndex) => {
@@ -110,10 +109,12 @@ const BookmarkList = ({
             const linkTitle = link.title || link.url || 'Untitled';
             const linkDomain = getDomain(link.url);
             const showLeftPreview =
+              bookmarkDropPreview?.kind === 'slot' &&
               bookmarkDropPreview?.collectionId === collection.id &&
               bookmarkDropPreview.renderId === link.id &&
               bookmarkDropPreview.side === 'left';
             const showRightPreview =
+              bookmarkDropPreview?.kind === 'slot' &&
               bookmarkDropPreview?.collectionId === collection.id &&
               bookmarkDropPreview.renderId === link.id &&
               bookmarkDropPreview.side === 'right';

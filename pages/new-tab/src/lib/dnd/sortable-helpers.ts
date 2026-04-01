@@ -1,4 +1,5 @@
 type OrderedIdsByCollection = Record<string, string[]>;
+type CollectionRectsById = Record<string, SlotRect>;
 type PointerCoordinates = {
   x: number;
   y: number;
@@ -112,17 +113,80 @@ const getClosestBookmarkDropIndicator = ({
   if (!bestSlot) return null;
 
   const currentIndex = ids.indexOf(activeId);
-  if (currentIndex < 0) return null;
+  const isSameCollectionMove = currentIndex >= 0;
 
-  const effectiveIndex =
-    bestSlot.index > currentIndex && bestSlot.side === 'right' ? bestSlot.index - 1 : bestSlot.index;
+  const effectiveIndex = isSameCollectionMove && bestSlot.index > currentIndex ? bestSlot.index - 1 : bestSlot.index;
 
-  if (effectiveIndex === currentIndex) return null;
+  if (isSameCollectionMove && effectiveIndex === currentIndex) return null;
 
   return {
-    index: bestSlot.index,
+    index: effectiveIndex,
     renderId: bestSlot.renderId,
     side: bestSlot.side,
+  };
+};
+
+const getCollectionIdFromPointer = ({
+  pointer,
+  rects,
+}: {
+  pointer: PointerCoordinates | null;
+  rects: Readonly<CollectionRectsById>;
+}) => {
+  if (!pointer) return null;
+
+  for (const [collectionId, rect] of Object.entries(rects)) {
+    const withinHorizontalBounds = pointer.x >= rect.left && pointer.x <= rect.left + rect.width;
+    const withinVerticalBounds = pointer.y >= rect.top && pointer.y <= rect.top + rect.height;
+
+    if (withinHorizontalBounds && withinVerticalBounds) {
+      return collectionId;
+    }
+  }
+
+  return null;
+};
+
+const moveIdBetweenCollections = ({
+  orderedIdsByCollection,
+  activeId,
+  sourceCollectionId,
+  targetCollectionId,
+  targetIndex,
+}: {
+  orderedIdsByCollection: Readonly<OrderedIdsByCollection>;
+  activeId: string;
+  sourceCollectionId: string;
+  targetCollectionId: string;
+  targetIndex: number;
+}) => {
+  if (sourceCollectionId === targetCollectionId) {
+    return {
+      ...orderedIdsByCollection,
+      [sourceCollectionId]: moveIdToIndex(
+        orderedIdsByCollection[sourceCollectionId] || [],
+        activeId,
+        Math.max(0, targetIndex),
+      ),
+    };
+  }
+
+  const sourceIds = [...(orderedIdsByCollection[sourceCollectionId] || [])];
+  const targetIds = [...(orderedIdsByCollection[targetCollectionId] || [])];
+  const sourceIndex = sourceIds.indexOf(activeId);
+
+  if (sourceIndex < 0) {
+    return { ...orderedIdsByCollection };
+  }
+
+  sourceIds.splice(sourceIndex, 1);
+  const boundedTargetIndex = Math.max(0, Math.min(targetIndex, targetIds.length));
+  targetIds.splice(boundedTargetIndex, 0, activeId);
+
+  return {
+    ...orderedIdsByCollection,
+    [sourceCollectionId]: sourceIds,
+    [targetCollectionId]: targetIds,
   };
 };
 
@@ -199,7 +263,9 @@ const measureBookmarkDropSlots = (listNode: HTMLElement): BookmarkDropSlot[] => 
 
 export {
   getClosestBookmarkDropIndicator,
+  getCollectionIdFromPointer,
   measureBookmarkDropSlots,
+  moveIdBetweenCollections,
   moveIdToIndex,
   orderByIds,
   reconcileBookmarkOrders,
@@ -209,6 +275,7 @@ export type {
   BookmarkDropIndicator,
   BookmarkDropIndicatorSide,
   BookmarkDropSlot,
+  CollectionRectsById,
   OrderedIdsByCollection,
   PointerCoordinates,
   SlotRect,

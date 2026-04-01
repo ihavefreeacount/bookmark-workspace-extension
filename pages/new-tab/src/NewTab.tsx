@@ -20,6 +20,7 @@ import {
   LS_LEFT_COLLAPSED,
   LS_RIGHT_COLLAPSED,
   getPersistedBool,
+  isFolder,
 } from '@src/lib/new-tab/helpers';
 import { useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -156,9 +157,11 @@ const NewTab = () => {
   const {
     activeBookmarkDragCollectionId,
     activeBookmarkOverlay,
+    bookmarkCollectionNodesRef,
+    bookmarkListNodesRef,
     bookmarkDropPreview,
     bookmarkOverlayModifier,
-    bookmarkSlotRectsRef,
+    orderedBookmarksByCollection,
     handleBookmarkDragCancel,
     handleBookmarkDragEnd,
     handleBookmarkDragMove,
@@ -507,9 +510,11 @@ const NewTab = () => {
   const bookmarkDndProps = {
     activeBookmarkDragCollectionId,
     activeBookmarkOverlay,
+    bookmarkCollectionNodesRef,
+    bookmarkListNodesRef,
     bookmarkDropPreview,
     bookmarkOverlayModifier,
-    bookmarkSlotRectsRef,
+    orderedBookmarksByCollection,
     handleBookmarkDragCancel,
     handleBookmarkDragEnd,
     handleBookmarkDragMove,

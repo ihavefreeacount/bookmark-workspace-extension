@@ -1,5 +1,7 @@
 import {
   getClosestBookmarkDropIndicator,
+  getCollectionIdFromPointer,
+  moveIdBetweenCollections,
   moveIdToIndex,
   orderByIds,
   reconcileBookmarkOrders,
@@ -63,7 +65,7 @@ describe('sortable helpers', () => {
     expect(
       getClosestBookmarkDropIndicator({
         ids: ['a', 'b', 'c'],
-        activeId: 'a',
+        activeId: 'c',
         pointer: { x: 95, y: 20 },
         slots: [
           { index: 0, renderId: 'a', side: 'left', rect: { left: 8, top: 0, width: 8, height: 40 } },
@@ -74,6 +76,38 @@ describe('sortable helpers', () => {
     ).toEqual({
       index: 1,
       renderId: 'b',
+      side: 'left',
+    });
+  });
+
+  it('returns null when the closest slot is the gap immediately after the active item', () => {
+    expect(
+      getClosestBookmarkDropIndicator({
+        ids: ['a', 'b', 'c'],
+        activeId: 'a',
+        pointer: { x: 95, y: 20 },
+        slots: [
+          { index: 1, renderId: 'b', side: 'left', rect: { left: 90, top: 0, width: 8, height: 40 } },
+          { index: 1, renderId: 'a', side: 'right', rect: { left: 66, top: 0, width: 8, height: 40 } },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it('returns a target index for cross-collection drops when the active id is absent', () => {
+    expect(
+      getClosestBookmarkDropIndicator({
+        ids: ['c'],
+        activeId: 'a',
+        pointer: { x: 94, y: 20 },
+        slots: [
+          { index: 0, renderId: 'c', side: 'left', rect: { left: 90, top: 0, width: 8, height: 40 } },
+          { index: 1, renderId: 'c', side: 'right', rect: { left: 126, top: 0, width: 8, height: 40 } },
+        ],
+      }),
+    ).toEqual({
+      index: 0,
+      renderId: 'c',
       side: 'left',
     });
   });
@@ -108,7 +142,7 @@ describe('sortable helpers', () => {
         ],
       }),
     ).toEqual({
-      index: 2,
+      index: 1,
       renderId: 'b',
       side: 'right',
     });
@@ -126,5 +160,47 @@ describe('sortable helpers', () => {
         ],
       }),
     ).toBeNull();
+  });
+
+  it('finds the collection whose card contains the pointer', () => {
+    expect(
+      getCollectionIdFromPointer({
+        pointer: { x: 190, y: 32 },
+        rects: {
+          alpha: { left: 16, top: 16, width: 120, height: 160 },
+          beta: { left: 160, top: 16, width: 120, height: 160 },
+        },
+      }),
+    ).toBe('beta');
+  });
+
+  it('returns null when the pointer is outside every collection card', () => {
+    expect(
+      getCollectionIdFromPointer({
+        pointer: { x: 400, y: 400 },
+        rects: {
+          alpha: { left: 16, top: 16, width: 120, height: 160 },
+          beta: { left: 160, top: 16, width: 120, height: 160 },
+        },
+      }),
+    ).toBeNull();
+  });
+
+  it('moves an id from one collection to another at the requested index', () => {
+    expect(
+      moveIdBetweenCollections({
+        orderedIdsByCollection: {
+          alpha: ['a', 'b'],
+          beta: ['c'],
+        },
+        activeId: 'a',
+        sourceCollectionId: 'alpha',
+        targetCollectionId: 'beta',
+        targetIndex: 1,
+      }),
+    ).toEqual({
+      alpha: ['b'],
+      beta: ['c', 'a'],
+    });
   });
 });

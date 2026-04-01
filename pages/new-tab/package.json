@@ -40,6 +40,7 @@
     "@extension/tailwindcss-config": "workspace:*",
     "@extension/tsconfig": "workspace:*",
     "@extension/vite-config": "workspace:*",
+    "jsdom": "^29.0.1",
     "sass": "^1.89.0",
     "vitest": "^4.0.18"
   },
