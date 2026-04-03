@@ -15,6 +15,10 @@ import { moveBookmarkNodeFromUserAction, updateBookmarkNodeFromUserAction } from
 import { orderByIds, reconcileOrderIds } from '@src/lib/dnd/sortable-helpers';
 import { getFallbackFavicon, rememberFavicon } from '@src/lib/favicon-resolver';
 import {
+  parseCollectionWorkspaceDragPayload,
+  startCollectionWorkspaceDrag,
+} from '@src/lib/new-tab/collection-workspace-drag';
+import {
   DND_COLLECTION_MIME,
   DND_TAB_MIME,
   LS_LEFT_COLLAPSED,
@@ -64,6 +68,7 @@ const NewTab = () => {
   const [workspaceFlyout, setWorkspaceFlyout] = useState<WorkspaceFlyout | null>(null);
   const openFlyoutTimerRef = useRef<number | null>(null);
   const closeFlyoutTimerRef = useRef<number | null>(null);
+  const collectionDragPreviewCleanupRef = useRef<(() => void) | null>(null);
   const suppressBookmarkRefreshRef = useRef(false);
   const { collections, refresh, selectedWorkspace, setWorkspaceId, tabs, tree, workspaceId, workspaces } =
     useNewTabData({
@@ -140,6 +145,13 @@ const NewTab = () => {
   }, [editingWorkspaceId]);
 
   useEffect(() => clearWorkspaceFlyoutTimers, [clearWorkspaceFlyoutTimers]);
+  useEffect(
+    () => () => {
+      collectionDragPreviewCleanupRef.current?.();
+      collectionDragPreviewCleanupRef.current = null;
+    },
+    [],
+  );
   useEffect(() => {
     previousWorkspaceIdRef.current = workspaceId;
   }, [workspaceId]);
@@ -184,6 +196,11 @@ const NewTab = () => {
       ),
     );
   }, [workspaces]);
+
+  const clearCollectionDragPreview = useCallback(() => {
+    collectionDragPreviewCleanupRef.current?.();
+    collectionDragPreviewCleanupRef.current = null;
+  }, []);
 
   const openWorkspaceInlineInput = () => {
     setLeftCollapsed(false);
@@ -397,17 +414,15 @@ const NewTab = () => {
   };
 
   const onDragCollectionStart = (e: ReactDragEvent<HTMLElement>, collection: CollectionSummary) => {
+    clearCollectionDragPreview();
     setDragKind('collection');
-    e.dataTransfer.clearData();
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData(
-      DND_COLLECTION_MIME,
-      JSON.stringify({
-        collectionId: collection.id,
-        title: collection.title,
-        workspaceId: collection.workspaceId,
-      }),
-    );
+
+    const { cleanup } = startCollectionWorkspaceDrag({
+      collection,
+      dataTransfer: e.dataTransfer,
+    });
+
+    collectionDragPreviewCleanupRef.current = cleanup;
   };
 
   const onDropCollectionToWorkspace = async (e: ReactDragEvent<HTMLElement>, targetWorkspace: BookmarkNode) => {
@@ -419,8 +434,8 @@ const NewTab = () => {
     const raw = e.dataTransfer.getData(DND_COLLECTION_MIME);
     if (!raw) return;
 
-    const payload = JSON.parse(raw) as { collectionId?: string; title?: string; workspaceId?: string };
-    if (!payload.collectionId || !payload.workspaceId || payload.workspaceId === targetWorkspace.id) return;
+    const payload = parseCollectionWorkspaceDragPayload(raw);
+    if (!payload || payload.workspaceId === targetWorkspace.id) return;
 
     await moveBookmarkNodeFromUserAction(payload.collectionId, { parentId: targetWorkspace.id });
     setToast(
@@ -451,10 +466,11 @@ const NewTab = () => {
   };
 
   const resetNativeDragState = useCallback(() => {
+    clearCollectionDragPreview();
     setDropCollectionId(null);
     setDropWorkspaceId(null);
     setDragKind(null);
-  }, []);
+  }, [clearCollectionDragPreview]);
 
   const handleWorkspaceReorderStart = useCallback(
     (workspaceIdToDrag: string) => {

@@ -691,6 +691,27 @@ button.active {
   text-overflow: ellipsis;
 }
 
+.collection-drag-preview {
+  width: min(220px, 48vw);
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.14);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.collection-drag-preview-title {
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 700;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .bookmark-item.is-editing {
   background-color: rgba(0, 122, 255, 0.05);
   transition: background-color 0.2s ease;
