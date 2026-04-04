@@ -1,4 +1,4 @@
-import type { CollectionDropPreview, PointerCoordinates } from '@src/lib/dnd/sortable-helpers';
+import type { CollectionDropPreview, PointerCoordinates, VerticalListDropPreview } from '@src/lib/dnd/sortable-helpers';
 
 export type BookmarkNode = chrome.bookmarks.BookmarkTreeNode;
 
@@ -54,6 +54,12 @@ export type BookmarkDragData = {
 };
 
 export type BookmarkDropPreview = CollectionDropPreview;
+export type WorkspaceDropPreview = VerticalListDropPreview;
+
+export type WorkspaceDragData = {
+  kind: 'workspace';
+  workspaceId: string;
+};
 
 export type BookmarkDragOverlayData = {
   title: string;
@@ -63,6 +69,11 @@ export type BookmarkDragOverlayData = {
 export type BookmarkPointerDownOrigin = {
   bookmarkId: string;
   collectionId: string;
+  pointer: PointerCoordinates;
+};
+
+export type WorkspacePointerDownOrigin = {
+  workspaceId: string;
   pointer: PointerCoordinates;
 };
 

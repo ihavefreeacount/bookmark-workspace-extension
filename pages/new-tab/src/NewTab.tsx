@@ -10,13 +10,13 @@ import { useBookmarkDnd } from '@src/hooks/use-bookmark-dnd';
 import { useCommandPalette } from '@src/hooks/use-command-palette';
 import { useFaviconState } from '@src/hooks/use-favicon-state';
 import { useNewTabData } from '@src/hooks/use-new-tab-data';
+import { useWorkspaceDnd } from '@src/hooks/use-workspace-dnd';
 import { removeBookmarkAfterUserConsent, removeBookmarkTreeAfterUserConsent } from '@src/lib/bookmark-consent';
 import { moveBookmarkNodeFromUserAction, updateBookmarkNodeFromUserAction } from '@src/lib/bookmark-user-actions';
 import {
   getCollectionDropPreviewFromPointer,
   measureBookmarkDropSlots,
   orderByIds,
-  reconcileOrderIds,
 } from '@src/lib/dnd/sortable-helpers';
 import { getFallbackFavicon, rememberFavicon } from '@src/lib/favicon-resolver';
 import {
@@ -72,9 +72,6 @@ const NewTab = () => {
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [activeContext, setActiveContext] = useState<ActiveContext>(null);
-  const [workspaceOrderIds, setWorkspaceOrderIds] = useState<string[]>([]);
-  const [draggingWorkspaceId, setDraggingWorkspaceId] = useState<string | null>(null);
-  const [workspaceReorderBusy, setWorkspaceReorderBusy] = useState(false);
   const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(null);
   const [editingWorkspaceName, setEditingWorkspaceName] = useState('');
   const [editingWorkspaceBusy, setEditingWorkspaceBusy] = useState(false);
@@ -178,7 +175,6 @@ const NewTab = () => {
     window.localStorage.setItem(LS_RIGHT_COLLAPSED, rightCollapsed ? '1' : '0');
   }, [rightCollapsed]);
   const suppressCollectionTransitions = previousWorkspaceIdRef.current !== workspaceId;
-  const orderedWorkspaces = useMemo(() => orderByIds(workspaces, workspaceOrderIds), [workspaces, workspaceOrderIds]);
   const clearActiveContext = useCallback(() => setActiveContext(null), []);
   const {
     activeBookmarkDragCollectionId,
@@ -201,15 +197,33 @@ const NewTab = () => {
     refresh,
     setToast,
   });
+  const {
+    activeWorkspaceDragId,
+    handleWorkspaceDragCancel,
+    handleWorkspaceDragEnd,
+    handleWorkspaceDragMove,
+    handleWorkspaceDragStart,
+    handleWorkspacePointerDownCapture,
+    sensors: workspaceSensors,
+    workspaceDropPreview,
+    workspaceOverlayModifier,
+    workspaceListNodeRef,
+    workspaceOrderIds,
+    workspaceReorderBusy,
+  } = useWorkspaceDnd({
+    refresh,
+    setToast,
+    suppressBookmarkRefreshRef,
+    tree,
+    workspaces,
+  });
+  const orderedWorkspaces = useMemo(() => orderByIds(workspaces, workspaceOrderIds), [workspaces, workspaceOrderIds]);
 
   useEffect(() => {
-    setWorkspaceOrderIds(prev =>
-      reconcileOrderIds(
-        prev,
-        workspaces.map(ws => ws.id),
-      ),
-    );
-  }, [workspaces]);
+    if (!activeWorkspaceDragId) return;
+    setWorkspaceFlyout(null);
+    clearWorkspaceFlyoutTimers();
+  }, [activeWorkspaceDragId, clearWorkspaceFlyoutTimers]);
 
   const measureCollectionRects = useCallback(() => {
     const entries = Object.entries(bookmarkCollectionNodesRef.current).flatMap(([collectionId, node]) => {
@@ -409,7 +423,7 @@ const NewTab = () => {
   };
 
   const scheduleWorkspaceFlyoutOpen = (ws: BookmarkNode, anchorEl: HTMLElement) => {
-    if (draggingWorkspaceId) return;
+    if (activeWorkspaceDragId) return;
     clearWorkspaceFlyoutTimers();
     openFlyoutTimerRef.current = window.setTimeout(() => {
       const rect = anchorEl.getBoundingClientRect();
@@ -463,18 +477,6 @@ const NewTab = () => {
     await refresh();
     cancelWorkspaceEdit();
     setToast('워크스페이스 이름을 변경했습니다.');
-  };
-
-  const persistWorkspaceOrder = async () => {
-    if (!tree || workspaceReorderBusy) return;
-    setWorkspaceReorderBusy(true);
-    for (let i = 0; i < workspaceOrderIds.length; i += 1) {
-      const id = workspaceOrderIds[i];
-      await moveBookmarkNodeFromUserAction(id, { parentId: tree.id, index: i });
-    }
-    await refresh();
-    setWorkspaceReorderBusy(false);
-    setToast('워크스페이스 순서를 변경했습니다.');
   };
 
   const onDragCollectionStart = (e: ReactDragEvent<HTMLElement>, collection: CollectionSummary) => {
@@ -583,19 +585,6 @@ const NewTab = () => {
     setDragKind(null);
   }, [clearCollectionDragPreview]);
 
-  const handleWorkspaceReorderStart = useCallback(
-    (workspaceIdToDrag: string) => {
-      setDraggingWorkspaceId(workspaceIdToDrag);
-      setWorkspaceFlyout(null);
-      clearWorkspaceFlyoutTimers();
-    },
-    [clearWorkspaceFlyoutTimers],
-  );
-
-  const handleWorkspaceReorderEnd = useCallback(() => {
-    setDraggingWorkspaceId(null);
-  }, []);
-
   const handleWorkspaceSelect = useCallback(
     (nextWorkspaceId: string) => {
       setWorkspaceFlyout(null);
@@ -649,6 +638,21 @@ const NewTab = () => {
     handleBookmarkPointerDownCapture,
     orderedBookmarkIds,
     sensors,
+  };
+
+  const workspaceDndProps = {
+    activeWorkspaceDragId,
+    handleWorkspaceDragCancel,
+    handleWorkspaceDragEnd,
+    handleWorkspaceDragMove,
+    handleWorkspaceDragStart,
+    handleWorkspacePointerDownCapture,
+    sensors: workspaceSensors,
+    workspaceDropPreview,
+    workspaceOverlayModifier,
+    workspaceListNodeRef,
+    workspaceOrderIds,
+    workspaceReorderBusy,
   };
 
   const bookmarkEditingProps = {
@@ -707,7 +711,6 @@ const NewTab = () => {
       <main className={`layout ${leftCollapsed ? 'left-collapsed' : ''} ${rightCollapsed ? 'right-collapsed' : ''}`}>
         <WorkspaceSidebar
           dragKind={dragKind}
-          draggingWorkspaceId={draggingWorkspaceId}
           dropWorkspaceId={dropWorkspaceId}
           editingWorkspaceBusy={editingWorkspaceBusy}
           editingWorkspaceId={editingWorkspaceId}
@@ -718,7 +721,6 @@ const NewTab = () => {
           onDropWorkspaceHighlight={setDropWorkspaceId}
           onEditingWorkspaceNameChange={setEditingWorkspaceName}
           onOpenWorkspaceInlineInput={openWorkspaceInlineInput}
-          onPersistWorkspaceOrder={persistWorkspaceOrder}
           onRequestDeleteWorkspace={workspace =>
             setDeleteTarget({
               kind: 'workspace',
@@ -728,22 +730,19 @@ const NewTab = () => {
           }
           onSaveWorkspaceEdit={saveWorkspaceEdit}
           onSelectWorkspace={handleWorkspaceSelect}
-          onStartWorkspaceDrag={handleWorkspaceReorderStart}
           onStartWorkspaceEdit={startWorkspaceEdit}
           onWorkspaceDrop={(event, workspace) => onDropCollectionToWorkspace(event, workspace)}
           onWorkspaceHoverEnter={scheduleWorkspaceFlyoutOpen}
           onWorkspaceHoverLeave={scheduleWorkspaceFlyoutClose}
           onWorkspaceInlineNameChange={setWorkspaceInlineName}
-          onWorkspaceOrderChange={setWorkspaceOrderIds}
-          onWorkspaceReorderEnd={handleWorkspaceReorderEnd}
           onSubmitWorkspaceInlineInput={submitWorkspaceInlineInput}
           orderedWorkspaces={orderedWorkspaces}
           selectedWorkspaceId={workspaceId}
+          workspaceDnd={workspaceDndProps}
           workspaceInlineBusy={workspaceInlineBusy}
           workspaceInlineName={workspaceInlineName}
           workspaceInlineOpen={workspaceInlineOpen}
           workspaceInlineRef={workspaceInlineRef}
-          workspaceOrderIds={workspaceOrderIds}
         />
 
         <CollectionsBoard

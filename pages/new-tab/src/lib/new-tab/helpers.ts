@@ -9,11 +9,13 @@ const LS_SELECTED_SPACE = 'bw:selected-space-id';
 const LS_LEFT_COLLAPSED = 'bw:left-collapsed';
 const LS_RIGHT_COLLAPSED = 'bw:right-collapsed';
 const BOOKMARK_DND_PREFIX = 'bookmark';
+const WORKSPACE_DND_PREFIX = 'workspace';
 const BOOKMARK_DRAG_AVATAR_SIZE = { width: 192, height: 52 } as const;
 
 const isFolder = (node: BookmarkNode) => !node.url;
 
 const getBookmarkDndId = (id: string) => `${BOOKMARK_DND_PREFIX}:${id}`;
+const getWorkspaceDndId = (id: string) => `${WORKSPACE_DND_PREFIX}:${id}`;
 
 const isEventFromBookmarkArea = (target: EventTarget | null) =>
   target instanceof HTMLElement && !!target.closest('.link-list');
@@ -22,6 +24,12 @@ const isBookmarkDragOriginExempt = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
   !!target.closest(
     'input, textarea, select, [contenteditable=""], [contenteditable="true"], [data-bookmark-drag-origin-exempt]',
+  );
+
+const isWorkspaceDragOriginExempt = (target: EventTarget | null) =>
+  target instanceof HTMLElement &&
+  !!target.closest(
+    'input, textarea, select, [contenteditable=""], [contenteditable="true"], [data-workspace-drag-origin-exempt]',
   );
 
 const getPointerCoordinates = (event: Event | null | undefined): PointerCoordinates | null => {
@@ -105,9 +113,11 @@ export {
   getPersisted,
   getPersistedBool,
   getPointerCoordinates,
+  getWorkspaceDndId,
   isBookmarkDragOriginExempt,
   isEventFromBookmarkArea,
   isFolder,
+  isWorkspaceDragOriginExempt,
   isValidBookmarkUrl,
   loadTree,
 };

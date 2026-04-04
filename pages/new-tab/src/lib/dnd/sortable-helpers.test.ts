@@ -1,8 +1,10 @@
 import {
   getClosestBookmarkDropIndicator,
+  getClosestVerticalDropIndicator,
   getCollectionDropPreview,
   getCollectionDropPreviewFromPointer,
   getCollectionIdFromPointer,
+  getVerticalListDropPreview,
   moveIdBetweenCollections,
   moveIdToIndex,
   orderByIds,
@@ -162,6 +164,57 @@ describe('sortable helpers', () => {
         ],
       }),
     ).toBeNull();
+  });
+
+  it('returns the closest vertical slot for workspace reordering', () => {
+    expect(
+      getClosestVerticalDropIndicator({
+        ids: ['a', 'b', 'c'],
+        activeId: 'c',
+        pointer: { x: 40, y: 96 },
+        slots: [
+          { index: 0, renderId: 'a', side: 'top', rect: { left: 0, top: 0, width: 120, height: 32 } },
+          { index: 1, renderId: 'b', side: 'top', rect: { left: 0, top: 72, width: 120, height: 32 } },
+          { index: 1, renderId: 'a', side: 'bottom', rect: { left: 0, top: 40, width: 120, height: 32 } },
+        ],
+      }),
+    ).toEqual({
+      index: 1,
+      renderId: 'b',
+      side: 'top',
+    });
+  });
+
+  it('returns null when the closest vertical slot resolves to the current position', () => {
+    expect(
+      getClosestVerticalDropIndicator({
+        ids: ['a', 'b', 'c'],
+        activeId: 'b',
+        pointer: { x: 40, y: 90 },
+        slots: [
+          { index: 1, renderId: 'b', side: 'top', rect: { left: 0, top: 72, width: 120, height: 24 } },
+          { index: 2, renderId: 'b', side: 'bottom', rect: { left: 0, top: 96, width: 120, height: 24 } },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it('returns a vertical preview for workspace reorder slots', () => {
+    expect(
+      getVerticalListDropPreview({
+        ids: ['a', 'b'],
+        pointer: { x: 40, y: 116 },
+        slots: [
+          { index: 0, renderId: 'a', side: 'top', rect: { left: 0, top: 0, width: 120, height: 32 } },
+          { index: 1, renderId: 'a', side: 'bottom', rect: { left: 0, top: 32, width: 120, height: 48 } },
+          { index: 2, renderId: 'b', side: 'bottom', rect: { left: 0, top: 80, width: 120, height: 48 } },
+        ],
+      }),
+    ).toEqual({
+      targetIndex: 2,
+      renderId: 'b',
+      side: 'bottom',
+    });
   });
 
   it('finds the collection whose card contains the pointer', () => {

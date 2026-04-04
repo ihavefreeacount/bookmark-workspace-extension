@@ -13,11 +13,18 @@ type SlotRect = {
 };
 
 type BookmarkDropIndicatorSide = 'left' | 'right';
+type VerticalDropIndicatorSide = 'top' | 'bottom';
 
 type BookmarkDropIndicator = {
   index: number;
   renderId: string;
   side: BookmarkDropIndicatorSide;
+};
+
+type VerticalDropIndicator = {
+  index: number;
+  renderId: string;
+  side: VerticalDropIndicatorSide;
 };
 
 type CollectionDropPreview =
@@ -41,6 +48,19 @@ type BookmarkDropSlot = {
   renderId: string;
   side: BookmarkDropIndicatorSide;
   rect: SlotRect;
+};
+
+type VerticalDropSlot = {
+  index: number;
+  renderId: string;
+  side: VerticalDropIndicatorSide;
+  rect: SlotRect;
+};
+
+type VerticalListDropPreview = {
+  targetIndex: number;
+  renderId: string;
+  side: VerticalDropIndicatorSide;
 };
 
 type CollectionOrderSource = {
@@ -142,6 +162,45 @@ const getClosestBookmarkDropIndicator = ({
   };
 };
 
+const getClosestVerticalDropIndicator = ({
+  slots,
+  pointer,
+  activeId,
+  ids,
+}: {
+  slots: readonly VerticalDropSlot[];
+  pointer: PointerCoordinates | null;
+  activeId: string | null;
+  ids: readonly string[];
+}): VerticalDropIndicator | null => {
+  if (!pointer || !slots.length) return null;
+
+  let bestSlot: VerticalDropSlot | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const slot of slots) {
+    const distance = getSlotDistance(pointer, slot.rect);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestSlot = slot;
+    }
+  }
+
+  if (!bestSlot) return null;
+
+  const currentIndex = activeId ? ids.indexOf(activeId) : -1;
+  const isSameListMove = currentIndex >= 0;
+  const effectiveIndex = isSameListMove && bestSlot.index > currentIndex ? bestSlot.index - 1 : bestSlot.index;
+
+  if (isSameListMove && effectiveIndex === currentIndex) return null;
+
+  return {
+    index: effectiveIndex,
+    renderId: bestSlot.renderId,
+    side: bestSlot.side,
+  };
+};
+
 const getCollectionDropPreview = ({
   activeId = null,
   collectionId,
@@ -233,6 +292,33 @@ const getCollectionIdFromPointer = ({
   }
 
   return null;
+};
+
+const getVerticalListDropPreview = ({
+  activeId = null,
+  ids,
+  pointer,
+  slots,
+}: {
+  activeId?: string | null;
+  ids: readonly string[];
+  pointer: PointerCoordinates | null;
+  slots: readonly VerticalDropSlot[];
+}): VerticalListDropPreview | null => {
+  const indicator = getClosestVerticalDropIndicator({
+    slots,
+    pointer,
+    activeId,
+    ids,
+  });
+
+  if (!indicator) return null;
+
+  return {
+    targetIndex: indicator.index,
+    renderId: indicator.renderId,
+    side: indicator.side,
+  };
 };
 
 const moveIdBetweenCollections = ({
@@ -349,12 +435,59 @@ const measureBookmarkDropSlots = (listNode: HTMLElement): BookmarkDropSlot[] => 
   return slots;
 };
 
+const measureVerticalDropSlots = (listNode: HTMLElement, itemSelector = '[data-workspace-id]'): VerticalDropSlot[] => {
+  const itemElements = Array.from(listNode.querySelectorAll<HTMLElement>(itemSelector));
+  if (!itemElements.length) return [];
+
+  const listRect = listNode.getBoundingClientRect();
+  const slots: VerticalDropSlot[] = [];
+
+  itemElements.forEach((element, index) => {
+    const renderId = element.dataset.workspaceId || '';
+    const rect = element.getBoundingClientRect();
+    const previousRect = itemElements[index - 1]?.getBoundingClientRect() ?? null;
+    const nextRect = itemElements[index + 1]?.getBoundingClientRect() ?? null;
+    const topBoundary = previousRect ? (previousRect.bottom + rect.top) / 2 : listRect.top;
+    const bottomBoundary = nextRect ? (rect.bottom + nextRect.top) / 2 : listRect.bottom;
+    const middleY = rect.top + rect.height / 2;
+
+    slots.push({
+      index,
+      renderId,
+      side: 'top',
+      rect: {
+        left: listRect.left,
+        top: topBoundary,
+        width: listRect.width,
+        height: Math.max(middleY - topBoundary, 8),
+      },
+    });
+
+    slots.push({
+      index: index + 1,
+      renderId,
+      side: 'bottom',
+      rect: {
+        left: listRect.left,
+        top: middleY,
+        width: listRect.width,
+        height: Math.max(bottomBoundary - middleY, 8),
+      },
+    });
+  });
+
+  return slots;
+};
+
 export {
   getClosestBookmarkDropIndicator,
+  getClosestVerticalDropIndicator,
   getCollectionDropPreview,
   getCollectionDropPreviewFromPointer,
   getCollectionIdFromPointer,
+  getVerticalListDropPreview,
   measureBookmarkDropSlots,
+  measureVerticalDropSlots,
   moveIdBetweenCollections,
   moveIdToIndex,
   orderByIds,
@@ -370,4 +503,8 @@ export type {
   OrderedIdsByCollection,
   PointerCoordinates,
   SlotRect,
+  VerticalDropIndicator,
+  VerticalDropIndicatorSide,
+  VerticalDropSlot,
+  VerticalListDropPreview,
 };

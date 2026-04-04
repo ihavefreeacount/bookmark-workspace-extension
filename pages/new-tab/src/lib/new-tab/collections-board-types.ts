@@ -17,6 +17,8 @@ import type {
   CollectionSummary,
   EditingBookmark,
   RecentlyCreatedBookmark,
+  WorkspaceDragData,
+  WorkspaceDropPreview,
 } from '@src/lib/new-tab/types';
 import type {
   Dispatch,
@@ -85,6 +87,21 @@ type CollectionInlineController = {
   onSubmitCollectionInlineInput: () => Promise<void> | void;
 };
 
+type WorkspaceDndController = {
+  activeWorkspaceDragId: string | null;
+  handleWorkspaceDragCancel: () => void;
+  handleWorkspaceDragEnd: (event: DragEndEvent) => Promise<void> | void;
+  handleWorkspaceDragMove: (event: DragMoveEvent) => void;
+  handleWorkspaceDragStart: (event: DragStartEvent) => void;
+  handleWorkspacePointerDownCapture: (data: WorkspaceDragData, event: ReactPointerEvent<HTMLLIElement>) => void;
+  sensors: SensorDescriptor<SensorOptions>[];
+  workspaceDropPreview: WorkspaceDropPreview | null;
+  workspaceOverlayModifier: Modifier;
+  workspaceListNodeRef: RefObject<HTMLUListElement | null>;
+  workspaceOrderIds: string[];
+  workspaceReorderBusy: boolean;
+};
+
 type CollectionsBoardProps = {
   activeContext: ActiveContext;
   bookmarkDnd: BookmarkDndController;
@@ -121,4 +138,5 @@ export type {
   BookmarkInlineAddController,
   CollectionInlineController,
   CollectionsBoardProps,
+  WorkspaceDndController,
 };
