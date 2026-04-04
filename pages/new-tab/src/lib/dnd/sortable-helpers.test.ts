@@ -1,5 +1,7 @@
 import {
   getClosestBookmarkDropIndicator,
+  getCollectionDropPreview,
+  getCollectionDropPreviewFromPointer,
   getCollectionIdFromPointer,
   moveIdBetweenCollections,
   moveIdToIndex,
@@ -182,6 +184,87 @@ describe('sortable helpers', () => {
           alpha: { left: 16, top: 16, width: 120, height: 160 },
           beta: { left: 160, top: 16, width: 120, height: 160 },
         },
+      }),
+    ).toBeNull();
+  });
+
+  it('returns a slot preview for tab-style drops into populated collections', () => {
+    expect(
+      getCollectionDropPreview({
+        collectionId: 'beta',
+        ids: ['c'],
+        pointer: { x: 94, y: 20 },
+        slots: [
+          { index: 0, renderId: 'c', side: 'left', rect: { left: 90, top: 0, width: 8, height: 40 } },
+          { index: 1, renderId: 'c', side: 'right', rect: { left: 126, top: 0, width: 8, height: 40 } },
+        ],
+      }),
+    ).toEqual({
+      kind: 'slot',
+      collectionId: 'beta',
+      targetIndex: 0,
+      renderId: 'c',
+      side: 'left',
+    });
+  });
+
+  it('returns an empty-collection preview when the target collection has no bookmarks', () => {
+    expect(
+      getCollectionDropPreview({
+        collectionId: 'beta',
+        ids: [],
+        pointer: { x: 200, y: 48 },
+        slots: [],
+      }),
+    ).toEqual({
+      kind: 'empty-collection',
+      collectionId: 'beta',
+      targetIndex: 0,
+      renderId: null,
+      side: null,
+    });
+  });
+
+  it('resolves a collection preview from board rects and slot measurement', () => {
+    expect(
+      getCollectionDropPreviewFromPointer({
+        orderedIdsByCollection: {
+          alpha: ['a'],
+          beta: ['c'],
+        },
+        pointer: { x: 192, y: 40 },
+        rects: {
+          alpha: { left: 16, top: 16, width: 120, height: 160 },
+          beta: { left: 160, top: 16, width: 120, height: 160 },
+        },
+        slotsByCollection: collectionId =>
+          collectionId === 'beta'
+            ? [
+                { index: 0, renderId: 'c', side: 'left', rect: { left: 184, top: 20, width: 8, height: 40 } },
+                { index: 1, renderId: 'c', side: 'right', rect: { left: 220, top: 20, width: 8, height: 40 } },
+              ]
+            : [],
+      }),
+    ).toEqual({
+      kind: 'slot',
+      collectionId: 'beta',
+      targetIndex: 0,
+      renderId: 'c',
+      side: 'left',
+    });
+  });
+
+  it('returns null from board preview resolution when the pointer is outside every collection', () => {
+    expect(
+      getCollectionDropPreviewFromPointer({
+        orderedIdsByCollection: {
+          alpha: ['a'],
+        },
+        pointer: { x: 999, y: 999 },
+        rects: {
+          alpha: { left: 16, top: 16, width: 120, height: 160 },
+        },
+        slotsByCollection: () => [],
       }),
     ).toBeNull();
   });

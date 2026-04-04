@@ -20,6 +20,22 @@ type BookmarkDropIndicator = {
   side: BookmarkDropIndicatorSide;
 };
 
+type CollectionDropPreview =
+  | {
+      kind: 'slot';
+      collectionId: string;
+      targetIndex: number;
+      renderId: string;
+      side: BookmarkDropIndicatorSide;
+    }
+  | {
+      kind: 'empty-collection';
+      collectionId: string;
+      targetIndex: number;
+      renderId: null;
+      side: null;
+    };
+
 type BookmarkDropSlot = {
   index: number;
   renderId: string;
@@ -94,7 +110,7 @@ const getClosestBookmarkDropIndicator = ({
 }: {
   slots: readonly BookmarkDropSlot[];
   pointer: PointerCoordinates | null;
-  activeId: string;
+  activeId: string | null;
   ids: readonly string[];
 }): BookmarkDropIndicator | null => {
   if (!pointer || !slots.length) return null;
@@ -112,7 +128,7 @@ const getClosestBookmarkDropIndicator = ({
 
   if (!bestSlot) return null;
 
-  const currentIndex = ids.indexOf(activeId);
+  const currentIndex = activeId ? ids.indexOf(activeId) : -1;
   const isSameCollectionMove = currentIndex >= 0;
 
   const effectiveIndex = isSameCollectionMove && bestSlot.index > currentIndex ? bestSlot.index - 1 : bestSlot.index;
@@ -124,6 +140,78 @@ const getClosestBookmarkDropIndicator = ({
     renderId: bestSlot.renderId,
     side: bestSlot.side,
   };
+};
+
+const getCollectionDropPreview = ({
+  activeId = null,
+  collectionId,
+  ids,
+  pointer,
+  slots,
+}: {
+  activeId?: string | null;
+  collectionId: string;
+  ids: readonly string[];
+  pointer: PointerCoordinates | null;
+  slots: readonly BookmarkDropSlot[];
+}): CollectionDropPreview | null => {
+  if (!pointer) return null;
+
+  if (ids.length === 0) {
+    return {
+      kind: 'empty-collection',
+      collectionId,
+      targetIndex: 0,
+      renderId: null,
+      side: null,
+    };
+  }
+
+  const indicator = getClosestBookmarkDropIndicator({
+    slots,
+    pointer,
+    activeId,
+    ids,
+  });
+
+  if (!indicator) return null;
+
+  return {
+    kind: 'slot',
+    collectionId,
+    targetIndex: indicator.index,
+    renderId: indicator.renderId,
+    side: indicator.side,
+  };
+};
+
+const getCollectionDropPreviewFromPointer = ({
+  activeId = null,
+  orderedIdsByCollection,
+  pointer,
+  rects,
+  slotsByCollection,
+}: {
+  activeId?: string | null;
+  orderedIdsByCollection: Readonly<OrderedIdsByCollection>;
+  pointer: PointerCoordinates | null;
+  rects: Readonly<CollectionRectsById>;
+  slotsByCollection: (collectionId: string) => readonly BookmarkDropSlot[];
+}): CollectionDropPreview | null => {
+  const collectionId = getCollectionIdFromPointer({
+    pointer,
+    rects,
+  });
+
+  if (!collectionId) return null;
+
+  return getCollectionDropPreview({
+    activeId,
+    collectionId,
+    ids: orderedIdsByCollection[collectionId] || [],
+    pointer,
+    slots: slotsByCollection(collectionId),
+  });
 };
 
 const getCollectionIdFromPointer = ({
@@ -263,6 +351,8 @@ const measureBookmarkDropSlots = (listNode: HTMLElement): BookmarkDropSlot[] => 
 
 export {
   getClosestBookmarkDropIndicator,
+  getCollectionDropPreview,
+  getCollectionDropPreviewFromPointer,
   getCollectionIdFromPointer,
   measureBookmarkDropSlots,
   moveIdBetweenCollections,
@@ -275,6 +365,7 @@ export type {
   BookmarkDropIndicator,
   BookmarkDropIndicatorSide,
   BookmarkDropSlot,
+  CollectionDropPreview,
   CollectionRectsById,
   OrderedIdsByCollection,
   PointerCoordinates,

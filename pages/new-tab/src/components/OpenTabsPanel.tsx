@@ -1,6 +1,7 @@
 import { getDomain, getFallbackFavicon, getFaviconCandidates } from '@src/lib/favicon-resolver';
-import { DND_TAB_MIME } from '@src/lib/new-tab/helpers';
+import { startTabCollectionDrag } from '@src/lib/new-tab/tab-collection-drag';
 import { Globe, Link2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import type { DragEventHandler } from 'react';
 
 type OpenTabsPanelProps = {
@@ -11,15 +12,33 @@ type OpenTabsPanelProps = {
 };
 
 const OpenTabsPanel = ({ tabs, onBeginTabDrag, onEndTabDrag, onFocusTab }: OpenTabsPanelProps) => {
+  const dragPreviewCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(
+    () => () => {
+      dragPreviewCleanupRef.current?.();
+      dragPreviewCleanupRef.current = null;
+    },
+    [],
+  );
+
   const handleDragStart: DragEventHandler<HTMLLIElement> = event => {
     const tab = tabs.find(candidate => candidate.id?.toString() === event.currentTarget.dataset.tabId);
     if (!tab) return;
 
+    dragPreviewCleanupRef.current?.();
     onBeginTabDrag();
-    event.dataTransfer.setData(
-      DND_TAB_MIME,
-      JSON.stringify({ title: tab.title, url: tab.url, favIconUrl: tab.favIconUrl }),
-    );
+    const { cleanup } = startTabCollectionDrag({
+      dataTransfer: event.dataTransfer,
+      tab,
+    });
+    dragPreviewCleanupRef.current = cleanup;
+  };
+
+  const handleDragEnd: DragEventHandler<HTMLLIElement> = () => {
+    dragPreviewCleanupRef.current?.();
+    dragPreviewCleanupRef.current = null;
+    onEndTabDrag();
   };
 
   return (
@@ -41,7 +60,7 @@ const OpenTabsPanel = ({ tabs, onBeginTabDrag, onEndTabDrag, onFocusTab }: OpenT
                 data-tab-id={tab.id}
                 draggable
                 onDragStart={handleDragStart}
-                onDragEnd={onEndTabDrag}>
+                onDragEnd={handleDragEnd}>
                 <button
                   type="button"
                   className="link-row tab-row-btn"

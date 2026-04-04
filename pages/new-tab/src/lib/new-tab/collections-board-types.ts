@@ -93,11 +93,9 @@ type CollectionsBoardProps = {
   collectionInline: CollectionInlineController;
   collections: CollectionSummary[];
   dragKind: 'tab' | 'collection' | null;
-  dropCollectionId: string | null;
   onCollectionDragEnd: () => void;
   onCollectionDragStart: (event: ReactDragEvent<HTMLElement>, collection: CollectionSummary) => void;
-  onDropCollectionHighlight: (collectionId: string | null) => void;
-  onDropTabToCollection: (event: ReactDragEvent<HTMLElement>, collectionId: string) => Promise<void> | void;
+  onDropTabToCollection: (event: ReactDragEvent<HTMLElement>) => Promise<void> | void;
   onFaviconError: (bookmark: BookmarkNode) => void;
   onGetFaviconSrc: (bookmark: BookmarkNode) => string;
   onOpenCollection: (collectionId: string, mode: 'group' | 'new-window') => Promise<void> | void;
@@ -106,10 +104,13 @@ type CollectionsBoardProps = {
   onOpenWorkspaceInlineInput: () => void;
   onRequestDeleteCollection: (collection: CollectionSummary) => void;
   onRequestDeleteBookmark: (bookmark: BookmarkNode) => void;
+  onTabDragLeave: (event: ReactDragEvent<HTMLElement>) => void;
+  onTabDragOver: (event: ReactDragEvent<HTMLElement>) => void;
   selectedWorkspace: BookmarkNode | undefined;
   setActiveContext: Dispatch<SetStateAction<ActiveContext>>;
   shouldReduceMotion: boolean;
   suppressCollectionTransitions: boolean;
+  tabDropPreview: BookmarkDropPreview | null;
   tree: BookmarkNode | null;
   workspaces: BookmarkNode[];
 };

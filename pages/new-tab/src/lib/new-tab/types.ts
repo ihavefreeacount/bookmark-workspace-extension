@@ -1,4 +1,4 @@
-import type { BookmarkDropIndicatorSide, PointerCoordinates } from '@src/lib/dnd/sortable-helpers';
+import type { CollectionDropPreview, PointerCoordinates } from '@src/lib/dnd/sortable-helpers';
 
 export type BookmarkNode = chrome.bookmarks.BookmarkTreeNode;
 
@@ -53,13 +53,7 @@ export type BookmarkDragData = {
   collectionId: string;
 };
 
-export type BookmarkDropPreview = {
-  kind: 'slot' | 'empty-collection';
-  collectionId: string;
-  targetIndex: number;
-  renderId: string | null;
-  side: BookmarkDropIndicatorSide | null;
-};
+export type BookmarkDropPreview = CollectionDropPreview;
 
 export type BookmarkDragOverlayData = {
   title: string;

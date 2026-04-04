@@ -1,8 +1,7 @@
 import { PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { moveBookmarkNodeFromUserAction } from '@src/lib/bookmark-user-actions';
 import {
-  getClosestBookmarkDropIndicator,
-  getCollectionIdFromPointer,
+  getCollectionDropPreviewFromPointer,
   measureBookmarkDropSlots,
   moveIdBetweenCollections,
   reconcileBookmarkOrders,
@@ -275,46 +274,15 @@ const useBookmarkDnd = ({ collections, clearActiveContext, refresh, setToast }: 
         return;
       }
 
-      const targetCollectionId = getCollectionIdFromPointer({
-        pointer,
-        rects: measureCollectionRects(),
-      });
-      if (!targetCollectionId) {
-        setBookmarkDropPreview(null);
-        return;
-      }
-
-      const ids = orderedBookmarkIds[targetCollectionId] || [];
-      if (ids.length === 0) {
-        setBookmarkDropPreview({
-          kind: 'empty-collection',
-          collectionId: targetCollectionId,
-          targetIndex: 0,
-          renderId: null,
-          side: null,
-        });
-        return;
-      }
-
-      const indicator = getClosestBookmarkDropIndicator({
-        slots: measureSlotsForCollection(targetCollectionId),
-        pointer,
-        activeId: activeData.bookmarkId,
-        ids,
-      });
-
-      if (!indicator) {
-        setBookmarkDropPreview(null);
-        return;
-      }
-
-      setBookmarkDropPreview({
-        kind: 'slot',
-        collectionId: targetCollectionId,
-        targetIndex: indicator.index,
-        renderId: indicator.renderId,
-        side: indicator.side,
-      });
+      setBookmarkDropPreview(
+        getCollectionDropPreviewFromPointer({
+          activeId: activeData.bookmarkId,
+          orderedIdsByCollection: orderedBookmarkIds,
+          pointer,
+          rects: measureCollectionRects(),
+          slotsByCollection: measureSlotsForCollection,
+        }),
+      );
     },
     [measureCollectionRects, measureSlotsForCollection, orderedBookmarkIds],
   );

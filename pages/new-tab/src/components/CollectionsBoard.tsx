@@ -12,10 +12,8 @@ const CollectionsBoard = ({
   collectionInline,
   collections,
   dragKind,
-  dropCollectionId,
   onCollectionDragEnd,
   onCollectionDragStart,
-  onDropCollectionHighlight,
   onDropTabToCollection,
   onFaviconError,
   onGetFaviconSrc,
@@ -25,10 +23,13 @@ const CollectionsBoard = ({
   onOpenWorkspaceInlineInput,
   onRequestDeleteCollection,
   onRequestDeleteBookmark,
+  onTabDragLeave,
+  onTabDragOver,
   selectedWorkspace,
   setActiveContext,
   shouldReduceMotion,
   suppressCollectionTransitions,
+  tabDropPreview,
   tree,
   workspaces,
 }: CollectionsBoardProps) => {
@@ -110,10 +111,8 @@ const CollectionsBoard = ({
       bookmarkInlineAdd={bookmarkInlineAdd}
       collection={collection}
       dragKind={dragKind}
-      dropCollectionId={dropCollectionId}
       onCollectionDragEnd={onCollectionDragEnd}
       onCollectionDragStart={onCollectionDragStart}
-      onDropCollectionHighlight={onDropCollectionHighlight}
       onDropTabToCollection={onDropTabToCollection}
       onFaviconError={onFaviconError}
       onGetFaviconSrc={onGetFaviconSrc}
@@ -125,6 +124,7 @@ const CollectionsBoard = ({
       setActiveContext={setActiveContext}
       shouldReduceMotion={shouldReduceMotion}
       suppressTransitions={suppressCollectionTransitions}
+      tabDropPreview={tabDropPreview}
     />
   ));
   const emptyCollectionState = isEmptyCollectionState ? (
@@ -146,7 +146,10 @@ const CollectionsBoard = ({
   ) : null;
 
   return (
-    <section className="panel center">
+    <section
+      className="panel center"
+      onDragLeave={dragKind === 'tab' ? onTabDragLeave : undefined}
+      onDragOver={dragKind === 'tab' ? onTabDragOver : undefined}>
       {isEmptyWorkspaceState ? (
         <motion.div
           key="empty-workspace"

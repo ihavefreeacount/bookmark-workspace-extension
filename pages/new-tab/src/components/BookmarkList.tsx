@@ -10,7 +10,7 @@ import type {
   BookmarkEditingController,
   BookmarkInlineAddController,
 } from '@src/lib/new-tab/collections-board-types';
-import type { ActiveContext, BookmarkNode, CollectionSummary } from '@src/lib/new-tab/types';
+import type { ActiveContext, BookmarkDropPreview, BookmarkNode, CollectionSummary } from '@src/lib/new-tab/types';
 import type { Dispatch, SetStateAction } from 'react';
 
 type BookmarkListProps = {
@@ -20,6 +20,7 @@ type BookmarkListProps = {
   bookmarkInlineAdd: BookmarkInlineAddController;
   collection: CollectionSummary;
   disableOtherCollections: boolean;
+  externalDropPreview: BookmarkDropPreview | null;
   onCopyLink: (url?: string) => Promise<void> | void;
   onFaviconError: (bookmark: BookmarkNode) => void;
   onGetFaviconSrc: (bookmark: BookmarkNode) => string;
@@ -43,6 +44,7 @@ const BookmarkList = ({
   bookmarkInlineAdd,
   collection,
   disableOtherCollections,
+  externalDropPreview,
   onCopyLink,
   onFaviconError,
   onGetFaviconSrc,
@@ -86,6 +88,7 @@ const BookmarkList = ({
   const addPendingTitle = addStateForCollection?.draftTitle.trim() || addStateForCollection?.draftUrl || '새 북마크';
   const addPendingDomain = getDomain(addStateForCollection?.draftUrl);
   const visibleLinks = orderedBookmarksByCollection[collection.id] || collection.links;
+  const activeDropPreview = bookmarkDropPreview ?? externalDropPreview;
 
   return (
     <SortableContext items={visibleLinks.map(link => getBookmarkDndId(link.id))} strategy={rectSortingStrategy}>
@@ -109,15 +112,15 @@ const BookmarkList = ({
             const linkTitle = link.title || link.url || 'Untitled';
             const linkDomain = getDomain(link.url);
             const showLeftPreview =
-              bookmarkDropPreview?.kind === 'slot' &&
-              bookmarkDropPreview?.collectionId === collection.id &&
-              bookmarkDropPreview.renderId === link.id &&
-              bookmarkDropPreview.side === 'left';
+              activeDropPreview?.kind === 'slot' &&
+              activeDropPreview.collectionId === collection.id &&
+              activeDropPreview.renderId === link.id &&
+              activeDropPreview.side === 'left';
             const showRightPreview =
-              bookmarkDropPreview?.kind === 'slot' &&
-              bookmarkDropPreview?.collectionId === collection.id &&
-              bookmarkDropPreview.renderId === link.id &&
-              bookmarkDropPreview.side === 'right';
+              activeDropPreview?.kind === 'slot' &&
+              activeDropPreview.collectionId === collection.id &&
+              activeDropPreview.renderId === link.id &&
+              activeDropPreview.side === 'right';
 
             return (
               <SortableBookmarkItem

@@ -12,7 +12,12 @@ import { useFaviconState } from '@src/hooks/use-favicon-state';
 import { useNewTabData } from '@src/hooks/use-new-tab-data';
 import { removeBookmarkAfterUserConsent, removeBookmarkTreeAfterUserConsent } from '@src/lib/bookmark-consent';
 import { moveBookmarkNodeFromUserAction, updateBookmarkNodeFromUserAction } from '@src/lib/bookmark-user-actions';
-import { orderByIds, reconcileOrderIds } from '@src/lib/dnd/sortable-helpers';
+import {
+  getCollectionDropPreviewFromPointer,
+  measureBookmarkDropSlots,
+  orderByIds,
+  reconcileOrderIds,
+} from '@src/lib/dnd/sortable-helpers';
 import { getFallbackFavicon, rememberFavicon } from '@src/lib/favicon-resolver';
 import {
   parseCollectionWorkspaceDragPayload,
@@ -26,10 +31,12 @@ import {
   getPersistedBool,
   isFolder,
 } from '@src/lib/new-tab/helpers';
+import { parseTabCollectionDragPayload, saveDroppedTabBookmark } from '@src/lib/new-tab/tab-collection-drag';
 import { useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ActiveContext,
+  BookmarkDropPreview,
   BookmarkNode,
   CollectionSummary,
   DeleteTarget,
@@ -38,11 +45,18 @@ import type {
 import type { DragEvent as ReactDragEvent } from 'react';
 import '@src/NewTab.css';
 
+const isSameDropPreview = (left: BookmarkDropPreview | null, right: BookmarkDropPreview | null) =>
+  left?.kind === right?.kind &&
+  left?.collectionId === right?.collectionId &&
+  left?.targetIndex === right?.targetIndex &&
+  left?.renderId === right?.renderId &&
+  left?.side === right?.side;
+
 const NewTab = () => {
   const shouldReduceMotion = useReducedMotion();
   const [leftCollapsed, setLeftCollapsed] = useState(() => getPersistedBool(LS_LEFT_COLLAPSED));
   const [rightCollapsed, setRightCollapsed] = useState(() => getPersistedBool(LS_RIGHT_COLLAPSED));
-  const [dropCollectionId, setDropCollectionId] = useState<string | null>(null);
+  const [tabDropPreview, setTabDropPreview] = useState<BookmarkDropPreview | null>(null);
   const [dropWorkspaceId, setDropWorkspaceId] = useState<string | null>(null);
   const [dragKind, setDragKind] = useState<'tab' | 'collection' | null>(null);
   const [toast, setToast] = useState('');
@@ -196,6 +210,56 @@ const NewTab = () => {
       ),
     );
   }, [workspaces]);
+
+  const measureCollectionRects = useCallback(() => {
+    const entries = Object.entries(bookmarkCollectionNodesRef.current).flatMap(([collectionId, node]) => {
+      if (!node) return [];
+
+      const rect = node.getBoundingClientRect();
+      return [
+        [
+          collectionId,
+          {
+            height: rect.height,
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+          },
+        ] as const,
+      ];
+    });
+
+    return Object.fromEntries(entries);
+  }, [bookmarkCollectionNodesRef]);
+
+  const measureSlotsForCollection = useCallback(
+    (collectionId: string) => {
+      const listNode = bookmarkListNodesRef.current[collectionId];
+      if (!listNode) return [];
+
+      return measureBookmarkDropSlots(listNode);
+    },
+    [bookmarkListNodesRef],
+  );
+
+  const resolveCollectionDropPreview = useCallback(
+    (pointer: { x: number; y: number } | null) =>
+      getCollectionDropPreviewFromPointer({
+        orderedIdsByCollection: orderedBookmarkIds,
+        pointer,
+        rects: measureCollectionRects(),
+        slotsByCollection: measureSlotsForCollection,
+      }),
+    [measureCollectionRects, measureSlotsForCollection, orderedBookmarkIds],
+  );
+
+  const updateTabDropPreview = useCallback(
+    (pointer: { x: number; y: number } | null) => {
+      const nextPreview = resolveCollectionDropPreview(pointer);
+      setTabDropPreview(previous => (isSameDropPreview(previous, nextPreview) ? previous : nextPreview));
+    },
+    [resolveCollectionDropPreview],
+  );
 
   const clearCollectionDragPreview = useCallback(() => {
     collectionDragPreviewCleanupRef.current?.();
@@ -446,28 +510,75 @@ const NewTab = () => {
     await refresh();
   };
 
-  const onDropTabToCollection = async (e: ReactDragEvent<HTMLElement>, collectionId: string) => {
+  const handleCollectionsBoardTabDragOver = useCallback(
+    (event: ReactDragEvent<HTMLElement>) => {
+      if (dragKind !== 'tab') return;
+
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+      updateTabDropPreview({
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    [dragKind, updateTabDropPreview],
+  );
+
+  const handleCollectionsBoardTabDragLeave = useCallback(
+    (event: ReactDragEvent<HTMLElement>) => {
+      if (dragKind !== 'tab') return;
+
+      const rect = event.currentTarget.getBoundingClientRect();
+      const isInsideBoard =
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom;
+
+      if (!isInsideBoard) {
+        setTabDropPreview(null);
+      }
+    },
+    [dragKind],
+  );
+
+  const onDropTabToCollection = async (e: ReactDragEvent<HTMLElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    setDropCollectionId(null);
     if (dragKind !== 'tab') return;
+
     const raw = e.dataTransfer.getData(DND_TAB_MIME);
-    if (!raw) return;
+    const payload = parseTabCollectionDragPayload(raw);
+    const preview =
+      tabDropPreview ||
+      resolveCollectionDropPreview({
+        x: e.clientX,
+        y: e.clientY,
+      });
 
-    const payload = JSON.parse(raw) as { url?: string; title?: string; favIconUrl?: string };
-    if (!payload.url) return;
+    resetNativeDragState();
 
-    await chrome.bookmarks.create({ parentId: collectionId, title: payload.title || payload.url, url: payload.url });
-    if (payload.favIconUrl) {
-      rememberFavicon(payload.url, payload.favIconUrl);
-    }
-    setToast('북마크를 저장했습니다.');
-    await refresh();
+    if (!payload?.url) return;
+    if (!preview) return;
+
+    const droppedTabPayload = {
+      ...payload,
+      url: payload.url,
+    };
+
+    await saveDroppedTabBookmark({
+      createBookmark: input => chrome.bookmarks.create(input),
+      payload: droppedTabPayload,
+      preview,
+      refresh,
+      rememberFavicon,
+      setToast,
+    });
   };
 
   const resetNativeDragState = useCallback(() => {
     clearCollectionDragPreview();
-    setDropCollectionId(null);
+    setTabDropPreview(null);
     setDropWorkspaceId(null);
     setDragKind(null);
   }, [clearCollectionDragPreview]);
@@ -643,10 +754,8 @@ const NewTab = () => {
           collectionInline={collectionInlineProps}
           collections={collections}
           dragKind={dragKind}
-          dropCollectionId={dropCollectionId}
           onCollectionDragEnd={resetNativeDragState}
           onCollectionDragStart={onDragCollectionStart}
-          onDropCollectionHighlight={setDropCollectionId}
           onDropTabToCollection={onDropTabToCollection}
           onFaviconError={onFaviconError}
           onGetFaviconSrc={getFaviconSrc}
@@ -669,10 +778,13 @@ const NewTab = () => {
               title: collection.title,
             })
           }
+          onTabDragLeave={handleCollectionsBoardTabDragLeave}
+          onTabDragOver={handleCollectionsBoardTabDragOver}
           selectedWorkspace={selectedWorkspace}
           setActiveContext={setActiveContext}
           shouldReduceMotion={shouldReduceMotion ?? false}
           suppressCollectionTransitions={suppressCollectionTransitions}
+          tabDropPreview={tabDropPreview}
           tree={tree}
           workspaces={workspaces}
         />

@@ -7,7 +7,7 @@ import type {
   BookmarkEditingController,
   BookmarkInlineAddController,
 } from '@src/lib/new-tab/collections-board-types';
-import type { ActiveContext, BookmarkNode, CollectionSummary } from '@src/lib/new-tab/types';
+import type { ActiveContext, BookmarkDropPreview, BookmarkNode, CollectionSummary } from '@src/lib/new-tab/types';
 import type { Dispatch, DragEvent as ReactDragEvent, SetStateAction } from 'react';
 
 type CollectionCardProps = {
@@ -17,11 +17,9 @@ type CollectionCardProps = {
   bookmarkInlineAdd: BookmarkInlineAddController;
   collection: CollectionSummary;
   dragKind: 'tab' | 'collection' | null;
-  dropCollectionId: string | null;
   onCollectionDragEnd: () => void;
   onCollectionDragStart: (event: ReactDragEvent<HTMLElement>, collection: CollectionSummary) => void;
-  onDropCollectionHighlight: (collectionId: string | null) => void;
-  onDropTabToCollection: (event: ReactDragEvent<HTMLElement>, collectionId: string) => Promise<void> | void;
+  onDropTabToCollection: (event: ReactDragEvent<HTMLElement>) => Promise<void> | void;
   onFaviconError: (bookmark: BookmarkNode) => void;
   onGetFaviconSrc: (bookmark: BookmarkNode) => string;
   onOpenCollection: (collectionId: string, mode: 'group' | 'new-window') => Promise<void> | void;
@@ -32,6 +30,7 @@ type CollectionCardProps = {
   setActiveContext: Dispatch<SetStateAction<ActiveContext>>;
   shouldReduceMotion: boolean;
   suppressTransitions: boolean;
+  tabDropPreview: BookmarkDropPreview | null;
 };
 
 const setScopedContextState =
@@ -48,10 +47,8 @@ const CollectionCard = ({
   bookmarkInlineAdd,
   collection,
   dragKind,
-  dropCollectionId,
   onCollectionDragEnd,
   onCollectionDragStart,
-  onDropCollectionHighlight,
   onDropTabToCollection,
   onFaviconError,
   onGetFaviconSrc,
@@ -63,12 +60,14 @@ const CollectionCard = ({
   setActiveContext,
   shouldReduceMotion,
   suppressTransitions,
+  tabDropPreview,
 }: CollectionCardProps) => {
   const { bookmarkCollectionNodesRef, bookmarkDropPreview } = bookmarkDnd;
   const disableOtherCollections =
     !!bookmarkDnd.activeBookmarkDragCollectionId && bookmarkDnd.activeBookmarkDragCollectionId !== collection.id;
-  const isEmptyBookmarkDropTarget =
-    bookmarkDropPreview?.kind === 'empty-collection' && bookmarkDropPreview.collectionId === collection.id;
+  const activeDropPreview = bookmarkDropPreview ?? tabDropPreview;
+  const isEmptyDropTarget =
+    activeDropPreview?.kind === 'empty-collection' && activeDropPreview.collectionId === collection.id;
 
   return (
     <ContextMenu.Root
@@ -87,7 +86,7 @@ const CollectionCard = ({
 
             bookmarkCollectionNodesRef.current[collection.id] = node;
           }}
-          className={`col-card ${dropCollectionId === collection.id || isEmptyBookmarkDropTarget ? 'drop-target' : ''} ${
+          className={`col-card ${isEmptyDropTarget ? 'drop-target' : ''} ${
             activeContext?.kind === 'collection' && activeContext.id === collection.id ? 'context-active' : ''
           }`}
           layout={suppressTransitions ? false : 'position'}
@@ -117,11 +116,9 @@ const CollectionCard = ({
           onDragOver={event => {
             if (dragKind !== 'tab') return;
             event.preventDefault();
-            onDropCollectionHighlight(collection.id);
           }}
-          onDragLeave={() => onDropCollectionHighlight(null)}
           onDrop={event => {
-            void onDropTabToCollection(event, collection.id);
+            void onDropTabToCollection(event);
           }}>
           <div className="col-head">
             <h3 className="col-title">{collection.title}</h3>
@@ -133,6 +130,7 @@ const CollectionCard = ({
             bookmarkInlineAdd={bookmarkInlineAdd}
             collection={collection}
             disableOtherCollections={disableOtherCollections}
+            externalDropPreview={tabDropPreview}
             onCopyLink={onCopyLink}
             onFaviconError={onFaviconError}
             onGetFaviconSrc={onGetFaviconSrc}
