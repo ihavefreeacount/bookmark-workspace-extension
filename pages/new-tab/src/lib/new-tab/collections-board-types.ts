@@ -12,6 +12,7 @@ import type {
   AddBookmarkMorphState,
   BookmarkDragData,
   BookmarkDragOverlayData,
+  CollectionDropPreview,
   BookmarkDropPreview,
   BookmarkNode,
   CollectionSummary,
@@ -87,6 +88,13 @@ type CollectionInlineController = {
   onSubmitCollectionInlineInput: () => Promise<void> | void;
 };
 
+type CollectionDndController = {
+  activeCollectionDragId: string | null;
+  collectionBoardNodeRef: RefObject<HTMLDivElement | null>;
+  collectionDropPreview: CollectionDropPreview | null;
+  orderedCollections: CollectionSummary[];
+};
+
 type WorkspaceDndController = {
   activeWorkspaceDragId: string | null;
   handleWorkspaceDragCancel: () => void;
@@ -107,11 +115,14 @@ type CollectionsBoardProps = {
   bookmarkDnd: BookmarkDndController;
   bookmarkEditing: BookmarkEditingController;
   bookmarkInlineAdd: BookmarkInlineAddController;
+  collectionDnd: CollectionDndController;
   collectionInline: CollectionInlineController;
-  collections: CollectionSummary[];
   dragKind: 'tab' | 'collection' | null;
+  onCollectionBoardDragLeave: (event: ReactDragEvent<HTMLElement>) => void;
+  onCollectionBoardDragOver: (event: ReactDragEvent<HTMLElement>) => void;
   onCollectionDragEnd: () => void;
   onCollectionDragStart: (event: ReactDragEvent<HTMLElement>, collection: CollectionSummary) => void;
+  onDropCollectionToBoard: (event: ReactDragEvent<HTMLElement>) => Promise<void> | void;
   onDropTabToCollection: (event: ReactDragEvent<HTMLElement>) => Promise<void> | void;
   onFaviconError: (bookmark: BookmarkNode) => void;
   onGetFaviconSrc: (bookmark: BookmarkNode) => string;
@@ -136,6 +147,7 @@ export type {
   BookmarkDndController,
   BookmarkEditingController,
   BookmarkInlineAddController,
+  CollectionDndController,
   CollectionInlineController,
   CollectionsBoardProps,
   WorkspaceDndController,

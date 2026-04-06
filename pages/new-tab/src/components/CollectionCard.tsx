@@ -4,6 +4,7 @@ import { isEventFromBookmarkArea } from '@src/lib/new-tab/helpers';
 import { motion } from 'motion/react';
 import type {
   BookmarkDndController,
+  CollectionDndController,
   BookmarkEditingController,
   BookmarkInlineAddController,
 } from '@src/lib/new-tab/collections-board-types';
@@ -15,6 +16,7 @@ type CollectionCardProps = {
   bookmarkDnd: BookmarkDndController;
   bookmarkEditing: BookmarkEditingController;
   bookmarkInlineAdd: BookmarkInlineAddController;
+  collectionDnd: CollectionDndController;
   collection: CollectionSummary;
   dragKind: 'tab' | 'collection' | null;
   onCollectionDragEnd: () => void;
@@ -45,6 +47,7 @@ const CollectionCard = ({
   bookmarkDnd,
   bookmarkEditing,
   bookmarkInlineAdd,
+  collectionDnd,
   collection,
   dragKind,
   onCollectionDragEnd,
@@ -63,11 +66,16 @@ const CollectionCard = ({
   tabDropPreview,
 }: CollectionCardProps) => {
   const { bookmarkCollectionNodesRef, bookmarkDropPreview } = bookmarkDnd;
+  const { activeCollectionDragId, collectionDropPreview } = collectionDnd;
   const disableOtherCollections =
     !!bookmarkDnd.activeBookmarkDragCollectionId && bookmarkDnd.activeBookmarkDragCollectionId !== collection.id;
   const activeDropPreview = bookmarkDropPreview ?? tabDropPreview;
   const isEmptyDropTarget =
     activeDropPreview?.kind === 'empty-collection' && activeDropPreview.collectionId === collection.id;
+  const showTopPreview = collectionDropPreview?.renderId === collection.id && collectionDropPreview.side === 'top';
+  const showBottomPreview =
+    collectionDropPreview?.renderId === collection.id && collectionDropPreview.side === 'bottom';
+  const isDraggingCollection = activeCollectionDragId === collection.id;
 
   return (
     <ContextMenu.Root
@@ -86,9 +94,10 @@ const CollectionCard = ({
 
             bookmarkCollectionNodesRef.current[collection.id] = node;
           }}
+          data-collection-card-id={collection.id}
           className={`col-card ${isEmptyDropTarget ? 'drop-target' : ''} ${
             activeContext?.kind === 'collection' && activeContext.id === collection.id ? 'context-active' : ''
-          }`}
+          } ${isDraggingCollection ? 'is-dragging' : ''}`}
           layout={suppressTransitions ? false : 'position'}
           initial={suppressTransitions || shouldReduceMotion ? false : { opacity: 0, y: -6 }}
           animate={suppressTransitions ? undefined : shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
@@ -118,8 +127,10 @@ const CollectionCard = ({
             event.preventDefault();
           }}
           onDrop={event => {
+            if (dragKind !== 'tab') return;
             void onDropTabToCollection(event);
           }}>
+          {showTopPreview ? <div className="collection-drop-line top" aria-hidden /> : null}
           <div className="col-head">
             <h3 className="col-title">{collection.title}</h3>
           </div>
@@ -139,6 +150,7 @@ const CollectionCard = ({
             setActiveContext={setActiveContext}
             shouldReduceMotion={shouldReduceMotion}
           />
+          {showBottomPreview ? <div className="collection-drop-line bottom" aria-hidden /> : null}
         </motion.article>
       </ContextMenu.Trigger>
       <ContextMenu.Portal>

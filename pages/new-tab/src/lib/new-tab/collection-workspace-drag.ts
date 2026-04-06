@@ -1,11 +1,5 @@
 import { DND_COLLECTION_MIME } from '@src/lib/new-tab/helpers';
-import type { CollectionSummary } from '@src/lib/new-tab/types';
-
-type CollectionWorkspaceDragPayload = {
-  collectionId: string;
-  title: string;
-  workspaceId: string;
-};
+import type { CollectionSummary, CollectionWorkspaceDragPayload } from '@src/lib/new-tab/types';
 
 type NativeCollectionPreviewCleanup = () => void;
 

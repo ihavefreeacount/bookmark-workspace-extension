@@ -435,7 +435,15 @@ const measureBookmarkDropSlots = (listNode: HTMLElement): BookmarkDropSlot[] => 
   return slots;
 };
 
-const measureVerticalDropSlots = (listNode: HTMLElement, itemSelector = '[data-workspace-id]'): VerticalDropSlot[] => {
+const measureVerticalDropSlots = (
+  listNode: HTMLElement,
+  options?: {
+    itemSelector?: string;
+    renderIdAttribute?: string;
+  },
+): VerticalDropSlot[] => {
+  const itemSelector = options?.itemSelector || '[data-workspace-id]';
+  const renderIdAttribute = options?.renderIdAttribute || 'data-workspace-id';
   const itemElements = Array.from(listNode.querySelectorAll<HTMLElement>(itemSelector));
   if (!itemElements.length) return [];
 
@@ -443,7 +451,7 @@ const measureVerticalDropSlots = (listNode: HTMLElement, itemSelector = '[data-w
   const slots: VerticalDropSlot[] = [];
 
   itemElements.forEach((element, index) => {
-    const renderId = element.dataset.workspaceId || '';
+    const renderId = element.getAttribute(renderIdAttribute) || '';
     const rect = element.getBoundingClientRect();
     const previousRect = itemElements[index - 1]?.getBoundingClientRect() ?? null;
     const nextRect = itemElements[index + 1]?.getBoundingClientRect() ?? null;

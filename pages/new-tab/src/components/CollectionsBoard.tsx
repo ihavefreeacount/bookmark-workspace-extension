@@ -9,11 +9,14 @@ const CollectionsBoard = ({
   bookmarkDnd,
   bookmarkEditing,
   bookmarkInlineAdd,
+  collectionDnd,
   collectionInline,
-  collections,
   dragKind,
+  onCollectionBoardDragLeave,
+  onCollectionBoardDragOver,
   onCollectionDragEnd,
   onCollectionDragStart,
+  onDropCollectionToBoard,
   onDropTabToCollection,
   onFaviconError,
   onGetFaviconSrc,
@@ -42,6 +45,7 @@ const CollectionsBoard = ({
     handleBookmarkDragStart,
     sensors,
   } = bookmarkDnd;
+  const { activeCollectionDragId, collectionBoardNodeRef, orderedCollections } = collectionDnd;
   const {
     collectionInlineBusy,
     collectionInlineHideDuringExit,
@@ -55,7 +59,7 @@ const CollectionsBoard = ({
   } = collectionInline;
 
   const isEmptyWorkspaceState = tree !== null && workspaces.length === 0;
-  const isEmptyCollectionState = tree !== null && collections.length === 0 && !collectionInlineOpen;
+  const isEmptyCollectionState = tree !== null && orderedCollections.length === 0 && !collectionInlineOpen;
   const collectionInlineCard = collectionInlineOpen ? (
     <motion.article
       key="inline-collection-input"
@@ -102,13 +106,14 @@ const CollectionsBoard = ({
       </div>
     </motion.article>
   ) : null;
-  const collectionCards = collections.map(collection => (
+  const collectionCards = orderedCollections.map(collection => (
     <CollectionCard
       key={collection.id}
       activeContext={activeContext}
       bookmarkDnd={bookmarkDnd}
       bookmarkEditing={bookmarkEditing}
       bookmarkInlineAdd={bookmarkInlineAdd}
+      collectionDnd={collectionDnd}
       collection={collection}
       dragKind={dragKind}
       onCollectionDragEnd={onCollectionDragEnd}
@@ -148,8 +153,13 @@ const CollectionsBoard = ({
   return (
     <section
       className="panel center"
-      onDragLeave={dragKind === 'tab' ? onTabDragLeave : undefined}
-      onDragOver={dragKind === 'tab' ? onTabDragOver : undefined}>
+      onDragLeave={
+        dragKind === 'tab' ? onTabDragLeave : dragKind === 'collection' ? onCollectionBoardDragLeave : undefined
+      }
+      onDragOver={
+        dragKind === 'tab' ? onTabDragOver : dragKind === 'collection' ? onCollectionBoardDragOver : undefined
+      }
+      onDrop={dragKind === 'collection' ? onDropCollectionToBoard : undefined}>
       {isEmptyWorkspaceState ? (
         <motion.div
           key="empty-workspace"
@@ -179,11 +189,17 @@ const CollectionsBoard = ({
                 {collectionInlineCard}
               </AnimatePresence>
             )}
-            {suppressCollectionTransitions ? (
-              collectionCards
-            ) : (
-              <AnimatePresence initial={false}>{collectionCards}</AnimatePresence>
-            )}
+            {orderedCollections.length > 0 ? (
+              <div
+                ref={collectionBoardNodeRef}
+                className={`collection-card-stack ${activeCollectionDragId ? 'collection-dragging' : ''}`}>
+                {suppressCollectionTransitions ? (
+                  collectionCards
+                ) : (
+                  <AnimatePresence initial={false}>{collectionCards}</AnimatePresence>
+                )}
+              </div>
+            ) : null}
             {emptyCollectionState}
           </div>
           <DragOverlay dropAnimation={null} modifiers={[bookmarkOverlayModifier]}>

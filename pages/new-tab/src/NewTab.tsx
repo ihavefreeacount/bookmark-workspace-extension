@@ -7,6 +7,7 @@ import { WorkspaceFlyoutPortal } from '@src/components/WorkspaceFlyoutPortal';
 import { WorkspaceSidebar } from '@src/components/WorkspaceSidebar';
 import { useBookmarkComposer } from '@src/hooks/use-bookmark-composer';
 import { useBookmarkDnd } from '@src/hooks/use-bookmark-dnd';
+import { useCollectionDnd } from '@src/hooks/use-collection-dnd';
 import { useCommandPalette } from '@src/hooks/use-command-palette';
 import { useFaviconState } from '@src/hooks/use-favicon-state';
 import { useNewTabData } from '@src/hooks/use-new-tab-data';
@@ -19,10 +20,7 @@ import {
   orderByIds,
 } from '@src/lib/dnd/sortable-helpers';
 import { getFallbackFavicon, rememberFavicon } from '@src/lib/favicon-resolver';
-import {
-  parseCollectionWorkspaceDragPayload,
-  startCollectionWorkspaceDrag,
-} from '@src/lib/new-tab/collection-workspace-drag';
+import { parseCollectionWorkspaceDragPayload } from '@src/lib/new-tab/collection-workspace-drag';
 import {
   DND_COLLECTION_MIME,
   DND_TAB_MIME,
@@ -79,7 +77,6 @@ const NewTab = () => {
   const [workspaceFlyout, setWorkspaceFlyout] = useState<WorkspaceFlyout | null>(null);
   const openFlyoutTimerRef = useRef<number | null>(null);
   const closeFlyoutTimerRef = useRef<number | null>(null);
-  const collectionDragPreviewCleanupRef = useRef<(() => void) | null>(null);
   const suppressBookmarkRefreshRef = useRef(false);
   const { collections, refresh, selectedWorkspace, setWorkspaceId, tabs, tree, workspaceId, workspaces } =
     useNewTabData({
@@ -156,13 +153,6 @@ const NewTab = () => {
   }, [editingWorkspaceId]);
 
   useEffect(() => clearWorkspaceFlyoutTimers, [clearWorkspaceFlyoutTimers]);
-  useEffect(
-    () => () => {
-      collectionDragPreviewCleanupRef.current?.();
-      collectionDragPreviewCleanupRef.current = null;
-    },
-    [],
-  );
   useEffect(() => {
     previousWorkspaceIdRef.current = workspaceId;
   }, [workspaceId]);
@@ -196,6 +186,25 @@ const NewTab = () => {
     clearActiveContext,
     refresh,
     setToast,
+  });
+  const {
+    activeCollectionDragId,
+    clearCollectionDragPreview,
+    collectionBoardNodeRef,
+    collectionDropPreview,
+    handleCollectionBoardDragLeave,
+    handleCollectionBoardDragOver,
+    handleCollectionBoardDrop,
+    handleCollectionDragStart,
+    orderedCollections,
+    resetCollectionDragState,
+  } = useCollectionDnd({
+    collections,
+    refresh,
+    selectedWorkspaceChildren: selectedWorkspace?.children || [],
+    selectedWorkspaceId: workspaceId,
+    setToast,
+    suppressBookmarkRefreshRef,
   });
   const {
     activeWorkspaceDragId,
@@ -275,10 +284,12 @@ const NewTab = () => {
     [resolveCollectionDropPreview],
   );
 
-  const clearCollectionDragPreview = useCallback(() => {
-    collectionDragPreviewCleanupRef.current?.();
-    collectionDragPreviewCleanupRef.current = null;
-  }, []);
+  const resetNativeDragState = useCallback(() => {
+    resetCollectionDragState();
+    setTabDropPreview(null);
+    setDropWorkspaceId(null);
+    setDragKind(null);
+  }, [resetCollectionDragState]);
 
   const openWorkspaceInlineInput = () => {
     setLeftCollapsed(false);
@@ -480,37 +491,69 @@ const NewTab = () => {
   };
 
   const onDragCollectionStart = (e: ReactDragEvent<HTMLElement>, collection: CollectionSummary) => {
-    clearCollectionDragPreview();
     setDragKind('collection');
-
-    const { cleanup } = startCollectionWorkspaceDrag({
-      collection,
-      dataTransfer: e.dataTransfer,
-    });
-
-    collectionDragPreviewCleanupRef.current = cleanup;
+    handleCollectionDragStart(e, collection);
   };
 
   const onDropCollectionToWorkspace = async (e: ReactDragEvent<HTMLElement>, targetWorkspace: BookmarkNode) => {
     e.preventDefault();
     e.stopPropagation();
-    setDropWorkspaceId(null);
     if (dragKind !== 'collection') return;
 
-    const raw = e.dataTransfer.getData(DND_COLLECTION_MIME);
-    if (!raw) return;
+    try {
+      setDropWorkspaceId(null);
+      clearCollectionDragPreview();
 
-    const payload = parseCollectionWorkspaceDragPayload(raw);
-    if (!payload || payload.workspaceId === targetWorkspace.id) return;
+      const raw = e.dataTransfer.getData(DND_COLLECTION_MIME);
+      if (!raw) return;
 
-    await moveBookmarkNodeFromUserAction(payload.collectionId, { parentId: targetWorkspace.id });
-    setToast(
-      `${
-        payload.title ? `'${payload.title}' 컬렉션을` : '컬렉션을'
-      } '${targetWorkspace.title || '워크스페이스'}'로 이동했습니다.`,
-    );
-    await refresh();
+      const payload = parseCollectionWorkspaceDragPayload(raw);
+      if (!payload || payload.workspaceId === targetWorkspace.id) return;
+
+      await moveBookmarkNodeFromUserAction(payload.collectionId, { parentId: targetWorkspace.id });
+      setToast(
+        `${
+          payload.title ? `'${payload.title}' 컬렉션을` : '컬렉션을'
+        } '${targetWorkspace.title || '워크스페이스'}'로 이동했습니다.`,
+      );
+      await refresh();
+    } finally {
+      resetNativeDragState();
+    }
   };
+
+  const handleCollectionsBoardCollectionDragOver = useCallback(
+    (event: ReactDragEvent<HTMLElement>) => {
+      if (dragKind !== 'collection') return;
+
+      setDropWorkspaceId(null);
+      handleCollectionBoardDragOver(event);
+    },
+    [dragKind, handleCollectionBoardDragOver],
+  );
+
+  const handleCollectionsBoardCollectionDragLeave = useCallback(
+    (event: ReactDragEvent<HTMLElement>) => {
+      if (dragKind !== 'collection') return;
+
+      handleCollectionBoardDragLeave(event);
+    },
+    [dragKind, handleCollectionBoardDragLeave],
+  );
+
+  const onDropCollectionToBoard = useCallback(
+    async (event: ReactDragEvent<HTMLElement>) => {
+      if (dragKind !== 'collection') return;
+
+      try {
+        setDropWorkspaceId(null);
+        await handleCollectionBoardDrop(event);
+      } finally {
+        resetNativeDragState();
+      }
+    },
+    [dragKind, handleCollectionBoardDrop, resetNativeDragState],
+  );
 
   const handleCollectionsBoardTabDragOver = useCallback(
     (event: ReactDragEvent<HTMLElement>) => {
@@ -545,9 +588,10 @@ const NewTab = () => {
   );
 
   const onDropTabToCollection = async (e: ReactDragEvent<HTMLElement>) => {
+    if (dragKind !== 'tab') return;
+
     e.preventDefault();
     e.stopPropagation();
-    if (dragKind !== 'tab') return;
 
     const raw = e.dataTransfer.getData(DND_TAB_MIME);
     const payload = parseTabCollectionDragPayload(raw);
@@ -577,13 +621,6 @@ const NewTab = () => {
       setToast,
     });
   };
-
-  const resetNativeDragState = useCallback(() => {
-    clearCollectionDragPreview();
-    setTabDropPreview(null);
-    setDropWorkspaceId(null);
-    setDragKind(null);
-  }, [clearCollectionDragPreview]);
 
   const handleWorkspaceSelect = useCallback(
     (nextWorkspaceId: string) => {
@@ -638,6 +675,13 @@ const NewTab = () => {
     handleBookmarkPointerDownCapture,
     orderedBookmarkIds,
     sensors,
+  };
+
+  const collectionDndProps = {
+    activeCollectionDragId,
+    collectionBoardNodeRef,
+    collectionDropPreview,
+    orderedCollections,
   };
 
   const workspaceDndProps = {
@@ -718,7 +762,12 @@ const NewTab = () => {
           editingWorkspaceRef={editingWorkspaceRef}
           onCancelWorkspaceEdit={cancelWorkspaceEdit}
           onCloseWorkspaceInlineInput={closeWorkspaceInlineInput}
-          onDropWorkspaceHighlight={setDropWorkspaceId}
+          onDropWorkspaceHighlight={workspaceId => {
+            if (workspaceId) {
+              clearCollectionDragPreview();
+            }
+            setDropWorkspaceId(workspaceId);
+          }}
           onEditingWorkspaceNameChange={setEditingWorkspaceName}
           onOpenWorkspaceInlineInput={openWorkspaceInlineInput}
           onRequestDeleteWorkspace={workspace =>
@@ -750,11 +799,14 @@ const NewTab = () => {
           bookmarkDnd={bookmarkDndProps}
           bookmarkEditing={bookmarkEditingProps}
           bookmarkInlineAdd={bookmarkInlineAddProps}
+          collectionDnd={collectionDndProps}
           collectionInline={collectionInlineProps}
-          collections={collections}
           dragKind={dragKind}
+          onCollectionBoardDragLeave={handleCollectionsBoardCollectionDragLeave}
+          onCollectionBoardDragOver={handleCollectionsBoardCollectionDragOver}
           onCollectionDragEnd={resetNativeDragState}
           onCollectionDragStart={onDragCollectionStart}
+          onDropCollectionToBoard={onDropCollectionToBoard}
           onDropTabToCollection={onDropTabToCollection}
           onFaviconError={onFaviconError}
           onGetFaviconSrc={getFaviconSrc}
