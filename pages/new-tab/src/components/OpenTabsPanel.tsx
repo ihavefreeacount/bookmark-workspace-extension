@@ -1,6 +1,6 @@
 import { getDomain, getFallbackFavicon, getFaviconCandidates } from '@src/lib/favicon-resolver';
 import { startTabCollectionDrag } from '@src/lib/new-tab/tab-collection-drag';
-import { Globe, Link2 } from 'lucide-react';
+import { Link2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { DragEventHandler } from 'react';
 
@@ -45,7 +45,6 @@ const OpenTabsPanel = ({ tabs, onBeginTabDrag, onEndTabDrag, onFocusTab }: OpenT
     <aside className="panel right">
       <div className="panel-content">
         <div className="panel-section-header">
-          <Globe className="panel-section-icon" size={15} aria-hidden="true" />
           <strong>열린 탭</strong>
         </div>
         <ul className="tab-list">

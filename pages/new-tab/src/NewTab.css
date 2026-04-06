@@ -245,6 +245,7 @@ button.active {
   margin-bottom: 8px;
   color: #333333;
   font-size: 13px;
+  padding: 0 14px;
 }
 
 .panel-section-icon {
