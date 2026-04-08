@@ -1,6 +1,7 @@
-import { DndContext, DragOverlay } from '@dnd-kit/core';
+import { DndContext } from '@dnd-kit/core';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { DraggableWorkspaceItem, WorkspaceDragAvatar, WorkspaceDropLine } from '@src/components/WorkspaceDnd';
+import { WorkspaceDragOverlayPortal } from '@src/components/WorkspaceDragOverlayPortal';
 import { getWorkspaceDndId } from '@src/lib/new-tab/helpers';
 import { Plus } from 'lucide-react';
 import type { WorkspaceDndController } from '@src/lib/new-tab/collections-board-types';
@@ -193,9 +194,9 @@ const WorkspaceSidebar = ({
               );
             })}
           </ul>
-          <DragOverlay dropAnimation={null} modifiers={[workspaceOverlayModifier]}>
+          <WorkspaceDragOverlayPortal modifiers={[workspaceOverlayModifier]}>
             {activeWorkspaceDragId ? <WorkspaceDragAvatar title={activeWorkspaceTitle} /> : null}
-          </DragOverlay>
+          </WorkspaceDragOverlayPortal>
         </DndContext>
         <ul className="workspace-list workspace-list-static">
           {workspaceInlineOpen && (
