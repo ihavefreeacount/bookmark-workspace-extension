@@ -397,6 +397,34 @@ describe('useCollectionDnd', () => {
     expect(suppressBookmarkRefreshRef.current).toBe(false);
   });
 
+  it('places newly created collections at the front when the bookmark tree inserts them first', async () => {
+    const newestCollection: CollectionSummary = {
+      id: 'newest',
+      links: [],
+      title: 'Newest',
+      workspace: 'Workspace',
+      workspaceId: 'workspace-1',
+    };
+
+    await renderHarness({
+      collections: [newestCollection, ...collectionsFixture],
+      selectedWorkspaceChildren: [
+        {
+          id: newestCollection.id,
+          title: newestCollection.title,
+        } as BookmarkNode,
+        ...workspaceChildrenFixture,
+      ],
+    });
+
+    expect(latestValue?.orderedCollections.map(collection => collection.id)).toEqual([
+      'newest',
+      'alpha',
+      'beta',
+      'gamma',
+    ]);
+  });
+
   it('shows a top preview and moves a collection earlier in the list', async () => {
     registerBoardNode();
     const dataTransfer = await startDrag('gamma');

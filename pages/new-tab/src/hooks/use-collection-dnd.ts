@@ -1,5 +1,5 @@
 import { moveBookmarkNodeFromUserAction } from '@src/lib/bookmark-user-actions';
-import { moveIdToIndex, orderByIds, reconcileOrderIds } from '@src/lib/dnd/sortable-helpers';
+import { moveIdToIndex, orderByIds } from '@src/lib/dnd/sortable-helpers';
 import {
   parseCollectionWorkspaceDragPayload,
   startCollectionWorkspaceDrag,
@@ -215,6 +215,53 @@ const resolveCollectionScrollTarget = (boardNode: HTMLElement): CollectionScroll
   };
 };
 
+// Keep drag-managed order for existing collections, but insert newly created ones
+// where the bookmark tree says they belong.
+const reconcileCollectionOrderIds = (currentIds: readonly string[], nextIds: readonly string[]) => {
+  if (!currentIds.length) return [...nextIds];
+
+  const kept = currentIds.filter(id => nextIds.includes(id));
+  if (!kept.length) return [...nextIds];
+
+  const keptSet = new Set(kept);
+  const nextKnownIdByAddedId = new Map<string, string | null>();
+
+  for (let index = nextIds.length - 1; index >= 0; index -= 1) {
+    const id = nextIds[index];
+    if (!id) continue;
+
+    if (keptSet.has(id)) {
+      nextKnownIdByAddedId.set(id, id);
+      continue;
+    }
+
+    const nextKnownId = nextIds.slice(index + 1).find(candidate => candidate && keptSet.has(candidate)) || null;
+    nextKnownIdByAddedId.set(id, nextKnownId);
+  }
+
+  const result = [...kept];
+
+  for (const id of nextIds) {
+    if (!id || keptSet.has(id)) continue;
+
+    const nextKnownId = nextKnownIdByAddedId.get(id) || null;
+    if (!nextKnownId) {
+      result.push(id);
+      continue;
+    }
+
+    const insertionIndex = result.indexOf(nextKnownId);
+    if (insertionIndex < 0) {
+      result.push(id);
+      continue;
+    }
+
+    result.splice(insertionIndex, 0, id);
+  }
+
+  return result;
+};
+
 const useCollectionDnd = ({
   collections,
   refresh,
@@ -234,7 +281,7 @@ const useCollectionDnd = ({
 
   useEffect(() => {
     setCollectionOrderIds(previous =>
-      reconcileOrderIds(
+      reconcileCollectionOrderIds(
         previous,
         collections.map(collection => collection.id),
       ),

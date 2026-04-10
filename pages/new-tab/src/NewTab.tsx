@@ -359,7 +359,7 @@ const NewTab = () => {
     const name = window.prompt('컬렉션 이름', '현재 창');
     if (!name) return;
 
-    const collection = await chrome.bookmarks.create({ parentId: workspaceId, title: name.trim() });
+    const collection = await chrome.bookmarks.create({ parentId: workspaceId, title: name.trim(), index: 0 });
     const list = await chrome.tabs.query({ currentWindow: true });
 
     const seen = new Set<string>();
