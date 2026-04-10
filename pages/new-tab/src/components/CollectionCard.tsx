@@ -1,7 +1,7 @@
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { BookmarkList } from '@src/components/BookmarkList';
 import { isEventFromBookmarkArea } from '@src/lib/new-tab/helpers';
-import { motion } from 'motion/react';
+import { useRef } from 'react';
 import type {
   BookmarkDndController,
   CollectionDndController,
@@ -9,7 +9,7 @@ import type {
   BookmarkInlineAddController,
 } from '@src/lib/new-tab/collections-board-types';
 import type { ActiveContext, BookmarkDropPreview, BookmarkNode, CollectionSummary } from '@src/lib/new-tab/types';
-import type { Dispatch, DragEvent as ReactDragEvent, SetStateAction } from 'react';
+import type { Dispatch, DragEvent as ReactDragEvent, PointerEvent as ReactPointerEvent, SetStateAction } from 'react';
 
 type CollectionCardProps = {
   activeContext: ActiveContext;
@@ -62,11 +62,11 @@ const CollectionCard = ({
   onRequestDeleteCollection,
   setActiveContext,
   shouldReduceMotion,
-  suppressTransitions,
   tabDropPreview,
 }: CollectionCardProps) => {
   const { bookmarkCollectionNodesRef, bookmarkDropPreview } = bookmarkDnd;
   const { activeCollectionDragId, collectionDropPreview } = collectionDnd;
+  const blockedCollectionDragOriginRef = useRef(false);
   const disableOtherCollections =
     !!bookmarkDnd.activeBookmarkDragCollectionId && bookmarkDnd.activeBookmarkDragCollectionId !== collection.id;
   const activeDropPreview = bookmarkDropPreview ?? tabDropPreview;
@@ -85,7 +85,7 @@ const CollectionCard = ({
         id: collection.id,
       })}>
       <ContextMenu.Trigger asChild>
-        <motion.article
+        <article
           ref={node => {
             if (!node) {
               delete bookmarkCollectionNodesRef.current[collection.id];
@@ -98,30 +98,22 @@ const CollectionCard = ({
           className={`col-card ${isEmptyDropTarget ? 'drop-target' : ''} ${
             activeContext?.kind === 'collection' && activeContext.id === collection.id ? 'context-active' : ''
           } ${isDraggingCollection ? 'is-dragging' : ''}`}
-          layout={suppressTransitions ? false : 'position'}
-          initial={suppressTransitions || shouldReduceMotion ? false : { opacity: 0, y: -6 }}
-          animate={suppressTransitions ? undefined : shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-          exit={suppressTransitions ? undefined : shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -10 }}
-          transition={
-            suppressTransitions
-              ? { duration: 0 }
-              : shouldReduceMotion
-                ? { duration: 0.01 }
-                : {
-                    y: { duration: 0.2, ease: 'easeOut' },
-                    opacity: { duration: 0.18, ease: 'easeOut' },
-                    layout: { type: 'spring', stiffness: 430, damping: 36 },
-                  }
-          }
           draggable
+          onPointerDownCapture={(event: ReactPointerEvent<HTMLElement>) => {
+            blockedCollectionDragOriginRef.current = isEventFromBookmarkArea(event.target);
+          }}
           onDragStart={event => {
-            if (isEventFromBookmarkArea(event.target)) {
+            if (blockedCollectionDragOriginRef.current || isEventFromBookmarkArea(event.target)) {
+              blockedCollectionDragOriginRef.current = false;
               event.preventDefault();
               return;
             }
             onCollectionDragStart(event as unknown as ReactDragEvent<HTMLElement>, collection);
           }}
-          onDragEnd={onCollectionDragEnd}
+          onDragEnd={() => {
+            blockedCollectionDragOriginRef.current = false;
+            onCollectionDragEnd();
+          }}
           onDragOver={event => {
             if (dragKind !== 'tab') return;
             event.preventDefault();
@@ -151,7 +143,7 @@ const CollectionCard = ({
             shouldReduceMotion={shouldReduceMotion}
           />
           {showBottomPreview ? <div className="collection-drop-line bottom" aria-hidden /> : null}
-        </motion.article>
+        </article>
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
         <ContextMenu.Content className="col-context-menu" alignOffset={-4}>

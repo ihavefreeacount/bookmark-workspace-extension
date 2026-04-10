@@ -167,6 +167,7 @@ const NewTab = () => {
   const suppressCollectionTransitions = previousWorkspaceIdRef.current !== workspaceId;
   const clearActiveContext = useCallback(() => setActiveContext(null), []);
   const {
+    activeBookmarkDragId,
     activeBookmarkDragCollectionId,
     activeBookmarkOverlay,
     bookmarkCollectionNodesRef,
@@ -661,6 +662,7 @@ const NewTab = () => {
   });
 
   const bookmarkDndProps = {
+    activeBookmarkDragId,
     activeBookmarkDragCollectionId,
     activeBookmarkOverlay,
     bookmarkCollectionNodesRef,

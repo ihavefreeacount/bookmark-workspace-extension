@@ -53,8 +53,13 @@ const BookmarkList = ({
   setActiveContext,
   shouldReduceMotion,
 }: BookmarkListProps) => {
-  const { bookmarkDropPreview, bookmarkListNodesRef, handleBookmarkPointerDownCapture, orderedBookmarksByCollection } =
-    bookmarkDnd;
+  const {
+    activeBookmarkDragId,
+    bookmarkDropPreview,
+    bookmarkListNodesRef,
+    handleBookmarkPointerDownCapture,
+    orderedBookmarksByCollection,
+  } = bookmarkDnd;
   const {
     editingBookmark,
     editingBookmarkBusy,
@@ -109,6 +114,7 @@ const BookmarkList = ({
             const isFallbackIcon = icon === getFallbackFavicon();
             const isNewlyAdded =
               recentlyCreatedBookmark?.collectionId === collection.id && recentlyCreatedBookmark.bookmarkId === link.id;
+            const isDraggedBookmark = activeBookmarkDragId === link.id;
             const linkTitle = link.title || link.url || 'Untitled';
             const linkDomain = getDomain(link.url);
             const showLeftPreview =
@@ -132,6 +138,7 @@ const BookmarkList = ({
                   collectionId: collection.id,
                 }}
                 className="bookmark-sortable-item"
+                dragging={isDraggedBookmark}
                 disabled={isEditing || disableOtherCollections}
                 onPointerDownCapture={event =>
                   handleBookmarkPointerDownCapture(
@@ -148,7 +155,6 @@ const BookmarkList = ({
                   'data-collection-id': collection.id,
                   initial: isNewlyAdded ? (shouldReduceMotion ? false : { opacity: 0, y: 14 }) : false,
                   animate: shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 },
-                  exit: shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 },
                   transition: isNewlyAdded
                     ? shouldReduceMotion
                       ? { duration: 0.01 }
@@ -329,11 +335,7 @@ const BookmarkList = ({
               </SortableBookmarkItem>
             );
           })}
-          <motion.li
-            key={`${collection.id}-inline-bookmark`}
-            className="bookmark-inline-add-slot"
-            layout
-            transition={shouldReduceMotion ? { duration: 0.01 } : { type: 'spring', stiffness: 460, damping: 38 }}>
+          <li key={`${collection.id}-inline-bookmark`} className="bookmark-inline-add-slot">
             {addStateForCollection?.phase === 'editing' ? (
               <div
                 ref={addingBookmarkFormRef}
@@ -431,7 +433,7 @@ const BookmarkList = ({
                 </span>
               </button>
             )}
-          </motion.li>
+          </li>
         </AnimatePresence>
       </ul>
     </SortableContext>

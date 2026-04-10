@@ -1,7 +1,7 @@
 import { closestCenter, DndContext, DragOverlay } from '@dnd-kit/core';
 import { BookmarkDragAvatar } from '@src/components/BookmarkDnd';
 import { CollectionCard } from '@src/components/CollectionCard';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import type { CollectionsBoardProps } from '@src/lib/new-tab/collections-board-types';
 
 const CollectionsBoard = ({
@@ -61,26 +61,7 @@ const CollectionsBoard = ({
   const isEmptyWorkspaceState = tree !== null && workspaces.length === 0;
   const isEmptyCollectionState = tree !== null && orderedCollections.length === 0 && !collectionInlineOpen;
   const collectionInlineCard = collectionInlineOpen ? (
-    <motion.article
-      key="inline-collection-input"
-      className={`col-card inline-input-card ${collectionInlineHideDuringExit ? 'is-hiding' : ''}`}
-      layout={suppressCollectionTransitions ? false : true}
-      initial={suppressCollectionTransitions || shouldReduceMotion ? false : { scale: 0.985, y: -8 }}
-      animate={suppressCollectionTransitions ? undefined : shouldReduceMotion ? { scale: 1, y: 0 } : { scale: 1, y: 0 }}
-      exit={
-        suppressCollectionTransitions
-          ? undefined
-          : shouldReduceMotion
-            ? { opacity: 0, transition: { duration: 0.01 } }
-            : { opacity: 0, scale: 0.992, y: -4, transition: { duration: 0.12, ease: 'easeOut' } }
-      }
-      transition={
-        suppressCollectionTransitions
-          ? { duration: 0 }
-          : shouldReduceMotion
-            ? { duration: 0.01 }
-            : { duration: 0.18, ease: 'easeOut' }
-      }>
+    <article className={`col-card inline-input-card ${collectionInlineHideDuringExit ? 'is-hiding' : ''}`}>
       <div className="col-head">
         <input
           ref={collectionInlineRef}
@@ -104,7 +85,7 @@ const CollectionsBoard = ({
           disabled={collectionInlineBusy}
         />
       </div>
-    </motion.article>
+    </article>
   ) : null;
   const collectionCards = orderedCollections.map(collection => (
     <CollectionCard
@@ -133,13 +114,7 @@ const CollectionsBoard = ({
     />
   ));
   const emptyCollectionState = isEmptyCollectionState ? (
-    <motion.div
-      key="empty-collection"
-      initial={suppressCollectionTransitions ? false : { opacity: 0 }}
-      animate={suppressCollectionTransitions ? undefined : { opacity: 1 }}
-      exit={suppressCollectionTransitions ? undefined : { opacity: 0 }}
-      transition={suppressCollectionTransitions ? { duration: 0 } : undefined}
-      className="empty-state">
+    <div className="empty-state empty-state-static">
       <h2 className="empty-state-title">
         {selectedWorkspace ? `'${selectedWorkspace.title}'에 컬렉션이 없습니다` : '컬렉션이 없습니다'}
       </h2>
@@ -147,7 +122,7 @@ const CollectionsBoard = ({
       <button className="empty-state-btn" onClick={onOpenCollectionInlineInput}>
         컬렉션 추가하기
       </button>
-    </motion.div>
+    </div>
   ) : null;
 
   return (
@@ -182,22 +157,12 @@ const CollectionsBoard = ({
           onDragCancel={handleBookmarkDragCancel}
           onDragEnd={handleBookmarkDragEnd}>
           <div className="grid">
-            {suppressCollectionTransitions ? (
-              collectionInlineCard
-            ) : (
-              <AnimatePresence initial={false} mode="popLayout">
-                {collectionInlineCard}
-              </AnimatePresence>
-            )}
+            {collectionInlineCard}
             {orderedCollections.length > 0 ? (
               <div
                 ref={collectionBoardNodeRef}
                 className={`collection-card-stack ${activeCollectionDragId ? 'collection-dragging' : ''}`}>
-                {suppressCollectionTransitions ? (
-                  collectionCards
-                ) : (
-                  <AnimatePresence initial={false}>{collectionCards}</AnimatePresence>
-                )}
+                {collectionCards}
               </div>
             ) : null}
             {emptyCollectionState}

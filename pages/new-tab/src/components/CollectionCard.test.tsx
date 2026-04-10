@@ -22,7 +22,13 @@ const collection: CollectionSummary = {
   workspaceId: 'workspace-1',
 };
 
+const collectionWithBookmark: CollectionSummary = {
+  ...collection,
+  links: [{ id: 'bookmark-1', title: 'Alpha', url: 'https://alpha.test' } as chrome.bookmarks.BookmarkTreeNode],
+};
+
 const createBookmarkDnd = (): BookmarkDndController => ({
+  activeBookmarkDragId: null,
   activeBookmarkDragCollectionId: null,
   activeBookmarkOverlay: null,
   bookmarkCollectionNodesRef: { current: {} },
@@ -173,5 +179,54 @@ describe('CollectionCard', () => {
     });
 
     expect(onDropTabToCollection).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not start collection drag when the pointer down began inside the bookmark area', async () => {
+    const onCollectionDragStart = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <CollectionCard
+          activeContext={null}
+          bookmarkDnd={createBookmarkDnd()}
+          bookmarkEditing={bookmarkEditing}
+          bookmarkInlineAdd={bookmarkInlineAdd}
+          collection={collectionWithBookmark}
+          collectionDnd={createCollectionDnd()}
+          dragKind={null}
+          onCollectionDragEnd={vi.fn()}
+          onCollectionDragStart={onCollectionDragStart}
+          onCopyLink={vi.fn()}
+          onDropTabToCollection={vi.fn()}
+          onFaviconError={vi.fn()}
+          onGetFaviconSrc={vi.fn().mockReturnValue('')}
+          onOpenCollection={vi.fn()}
+          onOpenLink={vi.fn()}
+          onRequestDeleteBookmark={vi.fn()}
+          onRequestDeleteCollection={vi.fn()}
+          setActiveContext={vi.fn()}
+          shouldReduceMotion
+          suppressTransitions
+          tabDropPreview={null}
+        />,
+      );
+    });
+
+    const bookmarkRow = container.querySelector('.link-row');
+    const card = container.querySelector('[data-collection-card-id="collection-1"]');
+
+    if (!bookmarkRow || !card) throw new Error('Expected bookmark row and collection card to render');
+
+    await act(async () => {
+      bookmarkRow.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      card.dispatchEvent(new Event('dragstart', { bubbles: true, cancelable: true }));
+    });
+
+    expect(onCollectionDragStart).not.toHaveBeenCalled();
   });
 });

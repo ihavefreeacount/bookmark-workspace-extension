@@ -547,10 +547,6 @@ button.active {
 .col-card.inline-input-card {
   cursor: text;
   box-shadow: var(--shadow-1);
-  animation: card-pop-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  will-change: transform;
 }
 
 .col-card.inline-input-card:focus-within {
@@ -579,17 +575,6 @@ button.active {
 .col-inline-input::placeholder {
   color: #a1a1aa;
   font-weight: 500;
-}
-
-@keyframes card-pop-in {
-  0% {
-    opacity: 0;
-    transform: scale(0.95) translateY(-8px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
 }
 
 .col-head {
@@ -1265,6 +1250,10 @@ button.active {
   padding: 72px 32px;
   min-height: 380px;
   animation: empty-state-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.empty-state.empty-state-static {
+  animation: none;
 }
 
 .empty-state-title {

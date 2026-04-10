@@ -8,6 +8,7 @@ const SortableBookmarkItem = ({
   id,
   data,
   disabled,
+  dragging,
   className,
   children,
   onPointerDownCapture,
@@ -16,12 +17,13 @@ const SortableBookmarkItem = ({
   id: string;
   data: BookmarkDragData;
   disabled?: boolean;
+  dragging?: boolean;
   className?: string;
   children: ReactNode;
   onPointerDownCapture?: PointerEventHandler<HTMLLIElement>;
   motionProps?: Record<string, unknown>;
 }) => {
-  const { attributes, listeners, isDragging, setNodeRef, transform, transition } = useSortable({
+  const { attributes, listeners, setNodeRef, transform } = useSortable({
     id,
     data,
     disabled,
@@ -30,10 +32,9 @@ const SortableBookmarkItem = ({
   return (
     <motion.li
       ref={setNodeRef}
-      className={[className, isDragging ? 'is-dragging' : ''].filter(Boolean).join(' ')}
+      className={[className, dragging ? 'is-dragging' : ''].filter(Boolean).join(' ')}
       style={{
         transform: CSS.Transform.toString(transform),
-        transition,
       }}
       onPointerDownCapture={onPointerDownCapture}
       {...attributes}

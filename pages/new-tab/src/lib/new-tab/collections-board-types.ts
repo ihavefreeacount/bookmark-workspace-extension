@@ -30,6 +30,7 @@ import type {
 } from 'react';
 
 type BookmarkDndController = {
+  activeBookmarkDragId: string | null;
   activeBookmarkDragCollectionId: string | null;
   activeBookmarkOverlay: BookmarkDragOverlayData | null;
   bookmarkCollectionNodesRef: RefObject<Record<string, HTMLElement>>;

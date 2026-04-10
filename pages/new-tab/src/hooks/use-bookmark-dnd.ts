@@ -382,6 +382,7 @@ const useBookmarkDnd = ({ collections, clearActiveContext, refresh, setToast }: 
   );
 
   return {
+    activeBookmarkDragId: activeBookmarkDrag?.bookmarkId ?? null,
     activeBookmarkDragCollectionId: activeBookmarkDrag?.collectionId ?? null,
     activeBookmarkOverlay,
     bookmarkCollectionNodesRef,
