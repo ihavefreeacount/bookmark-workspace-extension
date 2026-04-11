@@ -495,6 +495,10 @@ button.active {
   color: #8e8e93 !important;
 }
 
+.workspace-handoff-shell {
+  min-width: 0;
+}
+
 .grid {
   display: grid;
   gap: 12px;
@@ -634,7 +638,9 @@ button.active {
   background: transparent;
   padding: 16px 14px;
   box-shadow: none;
-  transition: background-color 120ms ease;
+  transition:
+    background-color 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .link-row {
@@ -683,6 +689,9 @@ button.active {
   border-radius: var(--radius-sm);
   padding: 16px 14px;
   border: none;
+  transition:
+    background-color 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .bookmark-sortable-item {
@@ -704,6 +713,12 @@ button.active {
 .bookmark-sortable-item.is-dragging .bookmark-item {
   cursor: grabbing;
   opacity: 0.32;
+}
+
+.link-row.is-success-flash,
+.bookmark-item.is-success-flash {
+  background: #eff6ff;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.28);
 }
 
 .bookmark-drop-line {
@@ -1082,6 +1097,14 @@ button.active {
   z-index: 90;
 }
 
+.confirm-overlay[data-state='open'] {
+  animation: confirm-overlay-in 120ms ease-out both;
+}
+
+.confirm-overlay[data-state='closed'] {
+  animation: confirm-overlay-out 100ms ease-in both;
+}
+
 .confirm-dialog {
   position: fixed;
   top: 50%;
@@ -1094,6 +1117,14 @@ button.active {
   box-shadow: 0 24px 48px rgba(17, 24, 39, 0.22);
   padding: 18px;
   z-index: 91;
+}
+
+.confirm-dialog[data-state='open'] {
+  animation: confirm-dialog-in 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.confirm-dialog[data-state='closed'] {
+  animation: confirm-dialog-out 100ms ease-in both;
 }
 
 .confirm-title {
@@ -1229,15 +1260,43 @@ button.active {
   background: #f5f6fa;
 }
 
-/* ── Empty State ── */
-@keyframes empty-state-in {
+@keyframes confirm-overlay-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+  }
+}
+
+@keyframes confirm-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes confirm-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 6px)) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes confirm-dialog-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.99);
   }
 }
 
@@ -1249,11 +1308,6 @@ button.active {
   text-align: center;
   padding: 72px 32px;
   min-height: 380px;
-  animation: empty-state-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.empty-state.empty-state-static {
-  animation: none;
 }
 
 .empty-state-title {
@@ -1294,4 +1348,16 @@ button.active {
 
 .empty-state-btn:active {
   background: rgb(205, 221, 247);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confirm-overlay[data-state='open'],
+  .confirm-dialog[data-state='open'] {
+    animation: confirm-overlay-in 10ms linear both;
+  }
+
+  .confirm-overlay[data-state='closed'],
+  .confirm-dialog[data-state='closed'] {
+    animation: confirm-overlay-out 10ms linear both;
+  }
 }

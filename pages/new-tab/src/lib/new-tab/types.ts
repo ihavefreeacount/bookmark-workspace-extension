@@ -46,9 +46,10 @@ export type AddBookmarkMorphState = {
   phase: AddBookmarkMorphPhase;
 };
 
-export type RecentlyCreatedBookmark = {
+export type BookmarkSuccessFlash = {
   collectionId: string;
   bookmarkId: string;
+  source: 'inline-add' | 'tab-drop' | 'move';
 } | null;
 
 export type BookmarkDragData = {

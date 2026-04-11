@@ -160,7 +160,7 @@ const saveDroppedTabBookmark = async ({
   setToast: (message: string) => void;
 }) => {
   try {
-    await createBookmark(
+    const created = await createBookmark(
       createBookmarkInputFromTabDrop({
         payload,
         preview,
@@ -173,12 +173,15 @@ const saveDroppedTabBookmark = async ({
 
     await refresh();
     setToast('북마크를 저장했습니다.');
-    return true;
+    return {
+      bookmarkId: created.id,
+      collectionId: preview.collectionId,
+    };
   } catch (error) {
     reportError(error);
     await refresh();
     setToast('북마크를 저장하지 못했습니다.');
-    return false;
+    return null;
   }
 };
 

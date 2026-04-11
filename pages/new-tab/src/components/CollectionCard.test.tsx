@@ -72,7 +72,7 @@ const bookmarkInlineAdd: BookmarkInlineAddController = {
   onOpenBookmarkInlineInput: vi.fn(),
   onSubmitBookmarkInlineInput: vi.fn(),
   onUpdateAddBookmarkDraft: vi.fn(),
-  recentlyCreatedBookmark: null,
+  bookmarkSuccessFlash: null,
 };
 
 const createCollectionDnd = (): CollectionDndController => ({

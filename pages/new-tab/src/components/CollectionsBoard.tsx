@@ -34,6 +34,7 @@ const CollectionsBoard = ({
   suppressCollectionTransitions,
   tabDropPreview,
   tree,
+  workspaceHandoffToken,
   workspaces,
 }: CollectionsBoardProps) => {
   const {
@@ -114,7 +115,7 @@ const CollectionsBoard = ({
     />
   ));
   const emptyCollectionState = isEmptyCollectionState ? (
-    <div className="empty-state empty-state-static">
+    <div className="empty-state">
       <h2 className="empty-state-title">
         {selectedWorkspace ? `'${selectedWorkspace.title}'에 컬렉션이 없습니다` : '컬렉션이 없습니다'}
       </h2>
@@ -124,6 +125,44 @@ const CollectionsBoard = ({
       </button>
     </div>
   ) : null;
+  const boardContent = isEmptyWorkspaceState ? (
+    <motion.div
+      initial={false}
+      animate={{ opacity: 1 }}
+      transition={shouldReduceMotion ? { duration: 0.01 } : { duration: 0.12, ease: 'easeOut' }}
+      className="empty-state">
+      <h2 className="empty-state-title">워크스페이스가 없습니다</h2>
+      <p className="empty-state-desc">워크스페이스를 만들어 북마크를 정리해보세요</p>
+      <button className="empty-state-btn" onClick={onOpenWorkspaceInlineInput}>
+        첫 워크스페이스 만들기
+      </button>
+    </motion.div>
+  ) : (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleBookmarkDragStart}
+      onDragMove={handleBookmarkDragMove}
+      onDragCancel={handleBookmarkDragCancel}
+      onDragEnd={handleBookmarkDragEnd}>
+      <div className="grid">
+        {collectionInlineCard}
+        {orderedCollections.length > 0 ? (
+          <div
+            ref={collectionBoardNodeRef}
+            className={`collection-card-stack ${activeCollectionDragId ? 'collection-dragging' : ''}`}>
+            {collectionCards}
+          </div>
+        ) : null}
+        {emptyCollectionState}
+      </div>
+      <DragOverlay dropAnimation={null} modifiers={[bookmarkOverlayModifier]}>
+        {activeBookmarkOverlay ? (
+          <BookmarkDragAvatar title={activeBookmarkOverlay.title} domain={activeBookmarkOverlay.domain} />
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  );
 
   return (
     <section
@@ -135,44 +174,17 @@ const CollectionsBoard = ({
         dragKind === 'tab' ? onTabDragOver : dragKind === 'collection' ? onCollectionBoardDragOver : undefined
       }
       onDrop={dragKind === 'collection' ? onDropCollectionToBoard : undefined}>
-      {isEmptyWorkspaceState ? (
+      {workspaceHandoffToken > 0 ? (
         <motion.div
-          key="empty-workspace"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="empty-state">
-          <h2 className="empty-state-title">워크스페이스가 없습니다</h2>
-          <p className="empty-state-desc">워크스페이스를 만들어 북마크를 정리해보세요</p>
-          <button className="empty-state-btn" onClick={onOpenWorkspaceInlineInput}>
-            첫 워크스페이스 만들기
-          </button>
+          key={workspaceHandoffToken}
+          className="workspace-handoff-shell"
+          initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+          animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+          transition={shouldReduceMotion ? { duration: 0.1 } : { duration: 0.16, ease: 'easeOut' }}>
+          {boardContent}
         </motion.div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleBookmarkDragStart}
-          onDragMove={handleBookmarkDragMove}
-          onDragCancel={handleBookmarkDragCancel}
-          onDragEnd={handleBookmarkDragEnd}>
-          <div className="grid">
-            {collectionInlineCard}
-            {orderedCollections.length > 0 ? (
-              <div
-                ref={collectionBoardNodeRef}
-                className={`collection-card-stack ${activeCollectionDragId ? 'collection-dragging' : ''}`}>
-                {collectionCards}
-              </div>
-            ) : null}
-            {emptyCollectionState}
-          </div>
-          <DragOverlay dropAnimation={null} modifiers={[bookmarkOverlayModifier]}>
-            {activeBookmarkOverlay ? (
-              <BookmarkDragAvatar title={activeBookmarkOverlay.title} domain={activeBookmarkOverlay.domain} />
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+        <div className="workspace-handoff-shell">{boardContent}</div>
       )}
     </section>
   );

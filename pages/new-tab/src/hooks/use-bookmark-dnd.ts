@@ -27,6 +27,7 @@ import type {
   BookmarkDropPreview,
   BookmarkNode,
   BookmarkPointerDownOrigin,
+  BookmarkSuccessFlash,
   CollectionSummary,
 } from '@src/lib/new-tab/types';
 import type { PointerEvent as ReactPointerEvent } from 'react';
@@ -34,13 +35,20 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 type UseBookmarkDndOptions = {
   collections: CollectionSummary[];
   clearActiveContext: () => void;
+  onBookmarkMoveSuccess: (flash: NonNullable<BookmarkSuccessFlash>) => void;
   refresh: () => Promise<void>;
   setToast: (message: string) => void;
 };
 
 const BOOKMARK_DRAG_ACTIVATION_DISTANCE = 8;
 
-const useBookmarkDnd = ({ collections, clearActiveContext, refresh, setToast }: UseBookmarkDndOptions) => {
+const useBookmarkDnd = ({
+  collections,
+  clearActiveContext,
+  onBookmarkMoveSuccess,
+  refresh,
+  setToast,
+}: UseBookmarkDndOptions) => {
   const [bookmarkOrderIdsByCollection, setBookmarkOrderIdsByCollection] = useState<OrderedIdsByCollection>({});
   const [activeBookmarkDrag, setActiveBookmarkDrag] = useState<BookmarkDragData | null>(null);
   const [bookmarkDropPreview, setBookmarkDropPreview] = useState<BookmarkDropPreview | null>(null);
@@ -370,6 +378,11 @@ const useBookmarkDnd = ({ collections, clearActiveContext, refresh, setToast }: 
           index: resolvedIndex,
         });
         await refresh();
+        onBookmarkMoveSuccess({
+          bookmarkId: activeData.bookmarkId,
+          collectionId: targetCollectionId,
+          source: 'move',
+        });
         setToast(isSameCollectionMove ? '북마크 순서를 변경했습니다.' : '북마크를 이동했습니다.');
       } catch (error) {
         console.error(error);
@@ -378,7 +391,7 @@ const useBookmarkDnd = ({ collections, clearActiveContext, refresh, setToast }: 
         setToast(isSameCollectionMove ? '북마크 순서를 변경하지 못했습니다.' : '북마크를 이동하지 못했습니다.');
       }
     },
-    [bookmarkDropPreview, orderedBookmarkIds, refresh, resetBookmarkDragState, setToast],
+    [bookmarkDropPreview, onBookmarkMoveSuccess, orderedBookmarkIds, refresh, resetBookmarkDragState, setToast],
   );
 
   return {

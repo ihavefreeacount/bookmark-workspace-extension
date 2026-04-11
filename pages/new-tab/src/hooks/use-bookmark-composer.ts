@@ -5,13 +5,14 @@ import type {
   CollectionSummary,
   BookmarkNode,
   AddBookmarkMorphState,
+  BookmarkSuccessFlash,
   EditingBookmark,
-  RecentlyCreatedBookmark,
 } from '@src/lib/new-tab/types';
 import type { RefObject } from 'react';
 
 type UseBookmarkComposerOptions = {
   collections: CollectionSummary[];
+  onBookmarkCreated: (flash: NonNullable<BookmarkSuccessFlash>) => void;
   refresh: () => Promise<void>;
   setToast: (message: string) => void;
   shouldReduceMotion: boolean;
@@ -20,6 +21,7 @@ type UseBookmarkComposerOptions = {
 
 const useBookmarkComposer = ({
   collections,
+  onBookmarkCreated,
   refresh,
   setToast,
   shouldReduceMotion,
@@ -32,7 +34,6 @@ const useBookmarkComposer = ({
   const editingTitleRef = useRef<HTMLInputElement | null>(null);
   const editingUrlRef = useRef<HTMLInputElement | null>(null);
   const [addBookmarkMorphState, setAddBookmarkMorphState] = useState<AddBookmarkMorphState | null>(null);
-  const [recentlyCreatedBookmark, setRecentlyCreatedBookmark] = useState<RecentlyCreatedBookmark>(null);
   const addingBookmarkTitleRef = useRef<HTMLInputElement | null>(null);
   const addingBookmarkUrlRef = useRef<HTMLInputElement | null>(null);
   const addingBookmarkFormRef = useRef<HTMLDivElement | null>(null);
@@ -65,20 +66,8 @@ const useBookmarkComposer = ({
     if (collections.some(collection => collection.id === addBookmarkMorphState.collectionId)) return;
 
     setAddBookmarkMorphState(null);
-    setRecentlyCreatedBookmark(null);
     setAddingBookmarkInvalid(false);
   }, [addBookmarkMorphState, collections]);
-
-  useEffect(() => {
-    if (!recentlyCreatedBookmark) return;
-
-    const cleanupDelay = shouldReduceMotion ? 40 : 900;
-    const timeout = window.setTimeout(() => {
-      setRecentlyCreatedBookmark(null);
-    }, cleanupDelay);
-
-    return () => window.clearTimeout(timeout);
-  }, [recentlyCreatedBookmark, shouldReduceMotion]);
 
   useEffect(() => {
     if (!addingBookmarkInvalid || addingBookmarkShakeToken <= 0) return;
@@ -229,9 +218,10 @@ const useBookmarkComposer = ({
         url: nextUrl,
       });
       await refresh();
-      setRecentlyCreatedBookmark({
-        collectionId: targetCollectionId,
+      onBookmarkCreated({
         bookmarkId: created.id,
+        collectionId: targetCollectionId,
+        source: 'inline-add',
       });
       setAddBookmarkMorphState(null);
       setToast('북마크를 추가했습니다.');
@@ -247,7 +237,14 @@ const useBookmarkComposer = ({
     } finally {
       suppressBookmarkRefreshRef.current = false;
     }
-  }, [addBookmarkMorphState, closeBookmarkInlineInput, refresh, setToast, suppressBookmarkRefreshRef]);
+  }, [
+    addBookmarkMorphState,
+    closeBookmarkInlineInput,
+    onBookmarkCreated,
+    refresh,
+    setToast,
+    suppressBookmarkRefreshRef,
+  ]);
 
   return {
     addBookmarkMorphState,
@@ -269,7 +266,6 @@ const useBookmarkComposer = ({
     editingUrl,
     editingUrlRef,
     openBookmarkInlineInput,
-    recentlyCreatedBookmark,
     saveBookmarkEdit,
     setEditingTitle,
     setEditingUrl,

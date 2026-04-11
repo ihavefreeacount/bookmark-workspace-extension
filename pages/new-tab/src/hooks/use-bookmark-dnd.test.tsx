@@ -5,7 +5,7 @@ import { moveBookmarkNodeFromUserAction } from '@src/lib/bookmark-user-actions';
 import { act, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CollectionSummary } from '@src/lib/new-tab/types';
+import type { BookmarkSuccessFlash, CollectionSummary } from '@src/lib/new-tab/types';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 vi.mock('@src/lib/bookmark-user-actions', () => ({
@@ -19,6 +19,7 @@ type HookValue = ReturnType<typeof useBookmarkDnd>;
 type HarnessProps = {
   clearActiveContext: () => void;
   collections: CollectionSummary[];
+  onBookmarkMoveSuccess: (flash: NonNullable<BookmarkSuccessFlash>) => void;
   onValue: (value: HookValue) => void;
   refresh: () => Promise<void>;
   setToast: (message: string) => void;
@@ -68,10 +69,18 @@ const collectionsWithEmptyTarget: CollectionSummary[] = [
   },
 ];
 
-const Harness = ({ clearActiveContext, collections, onValue, refresh, setToast }: HarnessProps) => {
+const Harness = ({
+  clearActiveContext,
+  collections,
+  onBookmarkMoveSuccess,
+  onValue,
+  refresh,
+  setToast,
+}: HarnessProps) => {
   const value = useBookmarkDnd({
     collections,
     clearActiveContext,
+    onBookmarkMoveSuccess,
     refresh,
     setToast,
   });
@@ -149,6 +158,7 @@ describe('useBookmarkDnd', () => {
   let clearActiveContext: ReturnType<typeof vi.fn>;
   let container: HTMLDivElement;
   let latestValue: HookValue | null;
+  let onBookmarkMoveSuccess: ReturnType<typeof vi.fn>;
   let refresh: ReturnType<typeof vi.fn>;
   let root: ReturnType<typeof createRoot>;
   let setToast: ReturnType<typeof vi.fn>;
@@ -159,6 +169,7 @@ describe('useBookmarkDnd', () => {
         <Harness
           collections={collections}
           clearActiveContext={clearActiveContext as () => void}
+          onBookmarkMoveSuccess={onBookmarkMoveSuccess as (flash: NonNullable<BookmarkSuccessFlash>) => void}
           onValue={value => {
             latestValue = value;
           }}
@@ -213,6 +224,7 @@ describe('useBookmarkDnd', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     latestValue = null;
+    onBookmarkMoveSuccess = vi.fn();
     refresh = vi.fn().mockResolvedValue(undefined);
     root = createRoot(container);
     setToast = vi.fn();
@@ -272,6 +284,11 @@ describe('useBookmarkDnd', () => {
     });
     expect(latestValue?.orderedBookmarksByCollection.alpha.map(link => link.id)).toEqual(['b']);
     expect(latestValue?.orderedBookmarksByCollection.beta.map(link => link.id)).toEqual(['a', 'c']);
+    expect(onBookmarkMoveSuccess).toHaveBeenCalledWith({
+      bookmarkId: 'a',
+      collectionId: 'beta',
+      source: 'move',
+    });
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(setToast).toHaveBeenCalledWith('북마크를 이동했습니다.');
   });
@@ -312,6 +329,11 @@ describe('useBookmarkDnd', () => {
       index: 0,
     });
     expect(latestValue?.orderedBookmarksByCollection.beta.map(link => link.id)).toEqual(['a']);
+    expect(onBookmarkMoveSuccess).toHaveBeenCalledWith({
+      bookmarkId: 'a',
+      collectionId: 'beta',
+      source: 'move',
+    });
   });
 
   it('restores the previous order when a cross-collection move fails', async () => {
@@ -347,6 +369,7 @@ describe('useBookmarkDnd', () => {
 
     expect(latestValue?.orderedBookmarksByCollection.alpha.map(link => link.id)).toEqual(['a', 'b']);
     expect(latestValue?.orderedBookmarksByCollection.beta.map(link => link.id)).toEqual(['c']);
+    expect(onBookmarkMoveSuccess).not.toHaveBeenCalled();
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(setToast).toHaveBeenCalledWith('북마크를 이동하지 못했습니다.');
     expect(consoleError).toHaveBeenCalledWith(error);

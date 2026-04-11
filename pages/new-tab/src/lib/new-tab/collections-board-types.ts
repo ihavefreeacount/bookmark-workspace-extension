@@ -15,9 +15,9 @@ import type {
   CollectionDropPreview,
   BookmarkDropPreview,
   BookmarkNode,
+  BookmarkSuccessFlash,
   CollectionSummary,
   EditingBookmark,
-  RecentlyCreatedBookmark,
   WorkspaceDragData,
   WorkspaceDropPreview,
 } from '@src/lib/new-tab/types';
@@ -74,7 +74,7 @@ type BookmarkInlineAddController = {
   onOpenBookmarkInlineInput: (collectionId: string) => void;
   onSubmitBookmarkInlineInput: () => Promise<void> | void;
   onUpdateAddBookmarkDraft: (patch: Partial<Pick<AddBookmarkMorphState, 'draftTitle' | 'draftUrl'>>) => void;
-  recentlyCreatedBookmark: RecentlyCreatedBookmark;
+  bookmarkSuccessFlash: BookmarkSuccessFlash;
 };
 
 type CollectionInlineController = {
@@ -141,6 +141,7 @@ type CollectionsBoardProps = {
   suppressCollectionTransitions: boolean;
   tabDropPreview: BookmarkDropPreview | null;
   tree: BookmarkNode | null;
+  workspaceHandoffToken: number;
   workspaces: BookmarkNode[];
 };
 

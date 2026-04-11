@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { createPortal } from 'react-dom';
 import type { WorkspaceFlyout } from '@src/lib/new-tab/types';
 import type { RefObject } from 'react';
@@ -10,6 +10,8 @@ type WorkspaceFlyoutPortalProps = {
 };
 
 const WorkspaceFlyoutPortal = ({ closeFlyoutTimerRef, onMouseLeave, workspaceFlyout }: WorkspaceFlyoutPortalProps) => {
+  const shouldReduceMotion = useReducedMotion();
+
   if (typeof document === 'undefined') return null;
 
   return createPortal(
@@ -19,15 +21,9 @@ const WorkspaceFlyoutPortal = ({ closeFlyoutTimerRef, onMouseLeave, workspaceFly
           key={workspaceFlyout.workspaceId}
           className="workspace-flyout"
           style={{ left: workspaceFlyout.x, top: workspaceFlyout.y }}
-          initial={{ opacity: 0, x: -8, scale: 0.97, filter: 'blur(4px)' }}
-          animate={{
-            opacity: 1,
-            x: 0,
-            scale: 1,
-            filter: 'blur(0px)',
-            transition: { type: 'spring', stiffness: 450, damping: 30, mass: 0.8 },
-          }}
-          exit={{ opacity: 0, x: -4, scale: 0.98, transition: { duration: 0.15, ease: 'easeOut' } }}
+          initial={shouldReduceMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1, transition: { duration: shouldReduceMotion ? 0.01 : 0.1, ease: 'easeOut' } }}
+          exit={{ opacity: 0, transition: { duration: shouldReduceMotion ? 0.01 : 0.08, ease: 'easeOut' } }}
           onMouseEnter={() => {
             if (closeFlyoutTimerRef.current) {
               window.clearTimeout(closeFlyoutTimerRef.current);

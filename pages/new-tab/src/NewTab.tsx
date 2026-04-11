@@ -30,12 +30,13 @@ import {
   isFolder,
 } from '@src/lib/new-tab/helpers';
 import { parseTabCollectionDragPayload, saveDroppedTabBookmark } from '@src/lib/new-tab/tab-collection-drag';
-import { useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ActiveContext,
   BookmarkDropPreview,
   BookmarkNode,
+  BookmarkSuccessFlash,
   CollectionSummary,
   DeleteTarget,
   WorkspaceFlyout,
@@ -50,6 +51,11 @@ const isSameDropPreview = (left: BookmarkDropPreview | null, right: BookmarkDrop
   left?.renderId === right?.renderId &&
   left?.side === right?.side;
 
+type ToastState = {
+  id: number;
+  message: string;
+} | null;
+
 const NewTab = () => {
   const shouldReduceMotion = useReducedMotion();
   const [leftCollapsed, setLeftCollapsed] = useState(() => getPersistedBool(LS_LEFT_COLLAPSED));
@@ -57,7 +63,8 @@ const NewTab = () => {
   const [tabDropPreview, setTabDropPreview] = useState<BookmarkDropPreview | null>(null);
   const [dropWorkspaceId, setDropWorkspaceId] = useState<string | null>(null);
   const [dragKind, setDragKind] = useState<'tab' | 'collection' | null>(null);
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState<ToastState>(null);
+  const toastIdRef = useRef(0);
   const [workspaceInlineOpen, setWorkspaceInlineOpen] = useState(false);
   const [workspaceInlineName, setWorkspaceInlineName] = useState('');
   const [workspaceInlineBusy, setWorkspaceInlineBusy] = useState(false);
@@ -75,8 +82,11 @@ const NewTab = () => {
   const [editingWorkspaceBusy, setEditingWorkspaceBusy] = useState(false);
   const editingWorkspaceRef = useRef<HTMLInputElement | null>(null);
   const [workspaceFlyout, setWorkspaceFlyout] = useState<WorkspaceFlyout | null>(null);
+  const [bookmarkSuccessFlash, setBookmarkSuccessFlash] = useState<BookmarkSuccessFlash>(null);
+  const [workspaceHandoffToken, setWorkspaceHandoffToken] = useState(0);
   const openFlyoutTimerRef = useRef<number | null>(null);
   const closeFlyoutTimerRef = useRef<number | null>(null);
+  const pendingSidebarWorkspaceChangeRef = useRef<string | null>(null);
   const suppressBookmarkRefreshRef = useRef(false);
   const { collections, refresh, selectedWorkspace, setWorkspaceId, tabs, tree, workspaceId, workspaces } =
     useNewTabData({
@@ -94,6 +104,16 @@ const NewTab = () => {
       window.clearTimeout(closeFlyoutTimerRef.current);
       closeFlyoutTimerRef.current = null;
     }
+  }, []);
+  const showToast = useCallback((message: string) => {
+    toastIdRef.current += 1;
+    setToast({
+      id: toastIdRef.current,
+      message,
+    });
+  }, []);
+  const showBookmarkSuccessFlash = useCallback((flash: NonNullable<BookmarkSuccessFlash>) => {
+    setBookmarkSuccessFlash(flash);
   }, []);
   const {
     addBookmarkMorphState,
@@ -113,7 +133,6 @@ const NewTab = () => {
     editingUrl,
     editingUrlRef,
     openBookmarkInlineInput,
-    recentlyCreatedBookmark,
     saveBookmarkEdit,
     setEditingTitle,
     setEditingUrl,
@@ -122,17 +141,29 @@ const NewTab = () => {
     updateAddBookmarkDraft,
   } = useBookmarkComposer({
     collections,
+    onBookmarkCreated: showBookmarkSuccessFlash,
     refresh,
-    setToast,
+    setToast: showToast,
     shouldReduceMotion: shouldReduceMotion ?? false,
     suppressBookmarkRefreshRef,
   });
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(''), 1400);
-    return () => clearTimeout(t);
+    const timeout = window.setTimeout(() => {
+      setToast(current => (current?.id === toast.id ? null : current));
+    }, 1400);
+    return () => window.clearTimeout(timeout);
   }, [toast]);
+
+  useEffect(() => {
+    if (!bookmarkSuccessFlash) return;
+    const timeout = window.setTimeout(
+      () => setBookmarkSuccessFlash(current => (current === bookmarkSuccessFlash ? null : current)),
+      shouldReduceMotion ? 360 : 720,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [bookmarkSuccessFlash, shouldReduceMotion]);
 
   useEffect(() => {
     if (!workspaceInlineOpen) return;
@@ -153,6 +184,16 @@ const NewTab = () => {
   }, [editingWorkspaceId]);
 
   useEffect(() => clearWorkspaceFlyoutTimers, [clearWorkspaceFlyoutTimers]);
+
+  useEffect(() => {
+    if (pendingSidebarWorkspaceChangeRef.current) {
+      if (pendingSidebarWorkspaceChangeRef.current === workspaceId) {
+        setWorkspaceHandoffToken(token => token + 1);
+      }
+      pendingSidebarWorkspaceChangeRef.current = null;
+    }
+  }, [workspaceId]);
+
   useEffect(() => {
     previousWorkspaceIdRef.current = workspaceId;
   }, [workspaceId]);
@@ -185,8 +226,9 @@ const NewTab = () => {
   } = useBookmarkDnd({
     collections,
     clearActiveContext,
+    onBookmarkMoveSuccess: showBookmarkSuccessFlash,
     refresh,
-    setToast,
+    setToast: showToast,
   });
   const {
     activeCollectionDragId,
@@ -204,7 +246,7 @@ const NewTab = () => {
     refresh,
     selectedWorkspaceChildren: selectedWorkspace?.children || [],
     selectedWorkspaceId: workspaceId,
-    setToast,
+    setToast: showToast,
     suppressBookmarkRefreshRef,
   });
   const {
@@ -222,7 +264,7 @@ const NewTab = () => {
     workspaceReorderBusy,
   } = useWorkspaceDnd({
     refresh,
-    setToast,
+    setToast: showToast,
     suppressBookmarkRefreshRef,
     tree,
     workspaces,
@@ -374,7 +416,7 @@ const NewTab = () => {
       }
       count += 1;
     }
-    setToast(`링크 ${count}개를 저장했습니다.`);
+    showToast(`링크 ${count}개를 저장했습니다.`);
   };
 
   const confirmDelete = async () => {
@@ -382,13 +424,13 @@ const NewTab = () => {
     setDeleteBusy(true);
     if (deleteTarget.kind === 'workspace') {
       await removeBookmarkTreeAfterUserConsent(deleteTarget.id);
-      setToast('워크스페이스를 삭제했습니다.');
+      showToast('워크스페이스를 삭제했습니다.');
     } else if (deleteTarget.kind === 'collection') {
       await removeBookmarkTreeAfterUserConsent(deleteTarget.id);
-      setToast('컬렉션을 삭제했습니다.');
+      showToast('컬렉션을 삭제했습니다.');
     } else {
       await removeBookmarkAfterUserConsent(deleteTarget.id);
-      setToast('북마크를 삭제했습니다.');
+      showToast('북마크를 삭제했습니다.');
     }
     await refresh();
     setDeleteBusy(false);
@@ -431,7 +473,7 @@ const NewTab = () => {
   const copyLink = async (url?: string) => {
     if (!url) return;
     await navigator.clipboard.writeText(url);
-    setToast('링크를 복사했습니다.');
+    showToast('링크를 복사했습니다.');
   };
 
   const scheduleWorkspaceFlyoutOpen = (ws: BookmarkNode, anchorEl: HTMLElement) => {
@@ -488,7 +530,7 @@ const NewTab = () => {
     await updateBookmarkNodeFromUserAction(editingWorkspaceId, { title: nextName });
     await refresh();
     cancelWorkspaceEdit();
-    setToast('워크스페이스 이름을 변경했습니다.');
+    showToast('워크스페이스 이름을 변경했습니다.');
   };
 
   const onDragCollectionStart = (e: ReactDragEvent<HTMLElement>, collection: CollectionSummary) => {
@@ -512,7 +554,7 @@ const NewTab = () => {
       if (!payload || payload.workspaceId === targetWorkspace.id) return;
 
       await moveBookmarkNodeFromUserAction(payload.collectionId, { parentId: targetWorkspace.id });
-      setToast(
+      showToast(
         `${
           payload.title ? `'${payload.title}' 컬렉션을` : '컬렉션을'
         } '${targetWorkspace.title || '워크스페이스'}'로 이동했습니다.`,
@@ -613,23 +655,32 @@ const NewTab = () => {
       url: payload.url,
     };
 
-    await saveDroppedTabBookmark({
+    const savedBookmark = await saveDroppedTabBookmark({
       createBookmark: input => chrome.bookmarks.create(input),
       payload: droppedTabPayload,
       preview,
       refresh,
       rememberFavicon,
-      setToast,
+      setToast: showToast,
     });
+
+    if (savedBookmark) {
+      showBookmarkSuccessFlash({
+        ...savedBookmark,
+        source: 'tab-drop',
+      });
+    }
   };
 
   const handleWorkspaceSelect = useCallback(
     (nextWorkspaceId: string) => {
+      if (nextWorkspaceId === workspaceId) return;
       setWorkspaceFlyout(null);
       clearWorkspaceFlyoutTimers();
+      pendingSidebarWorkspaceChangeRef.current = nextWorkspaceId;
       setWorkspaceId(nextWorkspaceId);
     },
-    [clearWorkspaceFlyoutTimers, setWorkspaceId],
+    [clearWorkspaceFlyoutTimers, setWorkspaceId, workspaceId],
   );
 
   const handleBeginTabDrag = useCallback(() => {
@@ -728,7 +779,7 @@ const NewTab = () => {
     onOpenBookmarkInlineInput: openBookmarkInlineInput,
     onSubmitBookmarkInlineInput: submitBookmarkInlineInput,
     onUpdateAddBookmarkDraft: updateAddBookmarkDraft,
-    recentlyCreatedBookmark,
+    bookmarkSuccessFlash,
   };
 
   const collectionInlineProps = {
@@ -839,6 +890,7 @@ const NewTab = () => {
           suppressCollectionTransitions={suppressCollectionTransitions}
           tabDropPreview={tabDropPreview}
           tree={tree}
+          workspaceHandoffToken={workspaceHandoffToken}
           workspaces={workspaces}
         />
 
@@ -850,7 +902,26 @@ const NewTab = () => {
         />
       </main>
 
-      {!!toast && <div className="toast">{toast}</div>}
+      <AnimatePresence>
+        {toast ? (
+          <motion.div
+            key={toast.id}
+            className="toast"
+            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }}
+            animate={
+              shouldReduceMotion
+                ? { opacity: 1, transition: { duration: 0.08 } }
+                : { opacity: 1, y: 0, scale: 1, transition: { duration: 0.14, ease: 'easeOut' } }
+            }
+            exit={
+              shouldReduceMotion
+                ? { opacity: 0, transition: { duration: 0.08 } }
+                : { opacity: 0, y: 4, scale: 0.98, transition: { duration: 0.1, ease: 'easeIn' } }
+            }>
+            {toast.message}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <WorkspaceFlyoutPortal
         closeFlyoutTimerRef={closeFlyoutTimerRef}

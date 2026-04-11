@@ -109,7 +109,10 @@ describe('tab collection drag helpers', () => {
       setToast,
     });
 
-    expect(saved).toBe(true);
+    expect(saved).toEqual({
+      bookmarkId: 'bookmark-3',
+      collectionId: 'collection-1',
+    });
     expect(createBookmark).toHaveBeenCalledWith({
       index: 1,
       parentId: 'collection-1',
@@ -148,7 +151,7 @@ describe('tab collection drag helpers', () => {
       setToast,
     });
 
-    expect(saved).toBe(false);
+    expect(saved).toBeNull();
     expect(reportError).toHaveBeenCalledWith(error);
     expect(rememberFavicon).not.toHaveBeenCalled();
     expect(refresh).toHaveBeenCalledTimes(1);

@@ -86,7 +86,7 @@ const BookmarkList = ({
     onOpenBookmarkInlineInput,
     onSubmitBookmarkInlineInput,
     onUpdateAddBookmarkDraft,
-    recentlyCreatedBookmark,
+    bookmarkSuccessFlash,
   } = bookmarkInlineAdd;
 
   const addStateForCollection = addBookmarkMorphState?.collectionId === collection.id ? addBookmarkMorphState : null;
@@ -112,9 +112,9 @@ const BookmarkList = ({
             const icon = onGetFaviconSrc(link);
             const isEditing = editingBookmark?.id === link.id;
             const isFallbackIcon = icon === getFallbackFavicon();
-            const isNewlyAdded =
-              recentlyCreatedBookmark?.collectionId === collection.id && recentlyCreatedBookmark.bookmarkId === link.id;
             const isDraggedBookmark = activeBookmarkDragId === link.id;
+            const isSuccessFlash =
+              bookmarkSuccessFlash?.collectionId === collection.id && bookmarkSuccessFlash.bookmarkId === link.id;
             const linkTitle = link.title || link.url || 'Untitled';
             const linkDomain = getDomain(link.url);
             const showLeftPreview =
@@ -153,15 +153,6 @@ const BookmarkList = ({
                 motionProps={{
                   'data-bookmark-id': link.id,
                   'data-collection-id': collection.id,
-                  initial: isNewlyAdded ? (shouldReduceMotion ? false : { opacity: 0, y: 14 }) : false,
-                  animate: shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 },
-                  transition: isNewlyAdded
-                    ? shouldReduceMotion
-                      ? { duration: 0.01 }
-                      : { duration: 0.28, ease: 'easeOut' }
-                    : shouldReduceMotion
-                      ? { duration: 0.01 }
-                      : { duration: 0.16, ease: 'easeOut' },
                 }}>
                 {showLeftPreview && <BookmarkDropLine side="left" />}
                 <ContextMenu.Root
@@ -172,7 +163,7 @@ const BookmarkList = ({
                   })}>
                   <ContextMenu.Trigger asChild>
                     {isEditing ? (
-                      <div className="bookmark-item is-editing">
+                      <div className={`bookmark-item is-editing ${isSuccessFlash ? 'is-success-flash' : ''}`}>
                         {isFallbackIcon ? (
                           <span className="fav-fallback" aria-hidden>
                             <Link2 size={14} />
@@ -250,9 +241,13 @@ const BookmarkList = ({
                       </div>
                     ) : (
                       <motion.button
-                        className={`link-row ${
-                          activeContext?.kind === 'bookmark' && activeContext.id === link.id ? 'context-active' : ''
-                        }`}
+                        className={[
+                          'link-row',
+                          activeContext?.kind === 'bookmark' && activeContext.id === link.id ? 'context-active' : '',
+                          isSuccessFlash ? 'is-success-flash' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
                         draggable={false}
                         onClick={() => {
                           void onOpenLink(link.url);

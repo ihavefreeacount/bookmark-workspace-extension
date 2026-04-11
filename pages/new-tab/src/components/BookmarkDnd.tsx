@@ -1,5 +1,4 @@
 import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'motion/react';
 import type { BookmarkDragData, BookmarkDragOverlayData } from '@src/lib/new-tab/types';
 import type { PointerEventHandler, ReactNode } from 'react';
@@ -23,7 +22,7 @@ const SortableBookmarkItem = ({
   onPointerDownCapture?: PointerEventHandler<HTMLLIElement>;
   motionProps?: Record<string, unknown>;
 }) => {
-  const { attributes, listeners, setNodeRef, transform } = useSortable({
+  const { attributes, listeners, setNodeRef } = useSortable({
     id,
     data,
     disabled,
@@ -33,9 +32,6 @@ const SortableBookmarkItem = ({
     <motion.li
       ref={setNodeRef}
       className={[className, dragging ? 'is-dragging' : ''].filter(Boolean).join(' ')}
-      style={{
-        transform: CSS.Transform.toString(transform),
-      }}
       onPointerDownCapture={onPointerDownCapture}
       {...attributes}
       {...listeners}
